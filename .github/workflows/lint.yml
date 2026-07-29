@@ -11,24 +11,17 @@ on:
 # the release asset, which is the same thing you would be copying by hand — so pinning it here would
 # add a second place to get out of date without adding any assurance.
 #
-# ⚠ **v0.11.0 IS NOT RELEASED YET. THIS WORKFLOW FAILS UNTIL IT IS — deliberately.**
+# ⚠ v0.11.0 is the FLOOR, and both halves of that matter:
 #
-# The failure is loud and names itself ("... is not in v0.11.0 — check the version pin"), so a red
-# build here means the dependency has not landed, NOT that something in this repo is broken. Do not
-# "fix" it by pinning backwards.
+#   - `place_file` places the plugin's .ini. An older `qm` cannot even PARSE the manifest
+#     ("unknown variant `place_file`") — a LINT failure, not a build one. (Landed in v0.10.3.)
+#   - reaching the `resident` scripts block. Every Lua target here is a resident module. v0.10.3
+#     LINTS this Shipment fine — lint is hermetic and resolves no script — but `qm build` on it
+#     fails with "not in this scripts block".
 #
-# Pinned forward on purpose, because two separate things this Shipment needs are ahead of v0.10.3:
-#
-#   - `place_file`, which places the plugin's .ini. Older `qm` cannot even PARSE the manifest
-#     ("unknown variant `place_file`") — that is a LINT failure, not a build one. (Landed in
-#     v0.10.3, so this part alone would be satisfied there.)
-#   - reaching the `resident` scripts block. Every Lua target here is a resident module, and no
-#     RELEASED `qm` can resolve them yet. Lint is hermetic and resolves no script, so it passes
-#     regardless; `qm build` fails with "not in this scripts block".
-#
-# So v0.10.3 lints but cannot build this Shipment. v0.11.0 is the first release expected to do both.
-# If it ships without resident-block support, lint will go green while `qm build` still fails — the
-# thing to check in that case is the release, not this file.
+# So pinning to something that merely lints would keep CI green while the build stayed broken for
+# anyone who tried it. v0.11.0 is the first release that does both; verified by building this
+# Shipment with the released binary, resident links and all.
 env:
   QM_VERSION: v0.11.0
 
