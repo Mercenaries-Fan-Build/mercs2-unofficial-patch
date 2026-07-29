@@ -1,4 +1,0 @@
-This file is a placeholder so the example lints.
-
-`edit_state_machine` has no schema for `states:` yet — defining one is a format change, not an
-implementation detail. See the manifest next door.
