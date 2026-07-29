@@ -10,6 +10,11 @@ on:
 # There is no digest to bump alongside it: the expected sha256 is read from GitHub's own record of
 # the release asset, which is the same thing you would be copying by hand — so pinning it here would
 # add a second place to get out of date without adding any assurance.
+#
+# ⚠ This pin only has to be new enough to LINT. BUILDING this Shipment needs a `qm` that can reach
+# the `resident` scripts block — every Lua target here is a resident module — which landed after
+# v0.10.2. Lint is hermetic and resolves no script, so it passes on the older pin; `qm build` on it
+# would fail with "not in this scripts block".
 env:
   QM_VERSION: v0.10.2
 
@@ -53,56 +58,44 @@ jobs:
       # during `qm build`.
       #
       # Gated on the EXIT CODE, not on what gets printed.
+      #
+      # M0141 warnings are EXPECTED here: these scripts are not on qm's mergeable allow-list, so the
+      # Shipment claims them exclusively rather than risking two mods silently erasing each other's
+      # Lua. That is the correct outcome for a fix pack, and warnings do not fail the build.
       - name: Lint this Shipment
         run: ./qm lint .
 
-      # Every example must lint clean too, or the teaching material rots the first time a rule
-      # changes and nobody notices.
+      # The plugin is not built here — that needs a 32-bit MinGW cross-compiler and the SDK submodule
+      # — but a manifest pointing at a path someone renamed should not survive until a release.
+      - name: The manifest's declared sources exist
+        run: |
+          set -euo pipefail
+          for f in src/lua/*.lua src/unofficial_patch.ini native/Makefile native/src/main.c; do
+            [ -f "$f" ] || { echo "::error::missing $f"; exit 1; }
+          done
+          grep -q 'plugin: src/unofficial_patch.asi' manifest.yaml \
+            || { echo "::error::manifest no longer points at src/unofficial_patch.asi"; exit 1; }
+          echo "manifest sources present"
+
+      # Every address the manifest CLAIMS must exist in the plugin source. Without this the `touches`
+      # list rots silently — and it is what the conflict system uses to notice two plugins hooking
+      # one address, so a stale entry is worse than no entry.
       #
-      # 08 is in this list deliberately. `edit_state_machine` LINTS clean and fails only at build —
-      # that gap is the lesson it teaches, so a lint failure there would mean something else broke.
-      - name: Lint the examples that should pass
+      # One-directional on purpose: the source also defines data addresses it only READS (singletons
+      # like the profile and gui pointers), and those are not hook claims.
+      - name: Every declared hook address exists in the source
         run: |
           set -euo pipefail
-          for d in examples/01-* examples/02-* examples/03-* examples/04-* \
-                   examples/05-*/alpha examples/05-*/beta \
-                   examples/06-* examples/07-* examples/08-* \
-                   examples/09-*/unmergeable-script; do
-            echo "── $d"
-            ./qm lint "$d"
-          done
-
-      # The counterpart, and the one that actually keeps the others honest: these examples exist to
-      # DEMONSTRATE failures, so a clean exit means the rule they teach has stopped firing. Without
-      # this the pass-only checks above would still be green with the whole linter disabled.
-      - name: The failing examples must actually fail
-        run: |
-          set -uo pipefail
-          rc=0
-          for d in examples/09-*/missing-file examples/09-*/two-claims-one-target; do
-            echo "── $d (expected to fail)"
-            if ./qm lint "$d"; then
-              echo "::error::$d was expected to fail lint but passed — the rule it demonstrates is no longer firing"
-              rc=1
-            fi
-          done
-          exit $rc
-
-      # Every kind in the format must be demonstrated by an example. Without this the examples drift
-      # behind the format silently — a new kind lands, nothing here fails, and the teaching material
-      # quietly stops being complete.
-      - name: Every contribution kind is covered
-        run: |
-          set -euo pipefail
-          missing=""
-          for kind in replace_texture add_model add_outfit patch_lua native_hook raw edit_state_machine; do
-            grep -rqs "kind: $kind" manifest.yaml examples/ || missing="$missing $kind"
-          done
+          norm() { grep -oiE '0x[0-9a-f]+' | tr '[:lower:]' '[:upper:]' | sed 's/^0X/0x/' | sort -u; }
+          grep -rhoE '0x[0-9A-Fa-f]{6,8}' native/src/*.c | norm > /tmp/in_code
+          grep -oE '^[[:space:]]+- "0x[0-9A-Fa-f]+"' manifest.yaml | norm > /tmp/declared
+          missing=$(comm -23 /tmp/declared /tmp/in_code || true)
           if [ -n "$missing" ]; then
-            echo "::error::no example demonstrates:$missing"
+            echo "::error::manifest declares hook addresses absent from native/src:"
+            echo "$missing"
             exit 1
           fi
-          echo "all seven kinds are demonstrated"
+          echo "all $(wc -l < /tmp/declared | tr -d ' ') declared hook addresses appear in the source"
 
       - name: What was checked
         if: always()
