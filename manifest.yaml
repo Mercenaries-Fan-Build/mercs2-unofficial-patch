@@ -55,3 +55,46 @@ contributions:
   - kind: patch_lua
     target: mrxplayer
     append: src/lua/bug_006_heroswap_save_restore.lua
+
+  # ── T3 — the runtime detours ────────────────────────────────────────────────────────────────────
+  #
+  # One .asi, one source file per bug, built from native/ against the shared m2 SDK (a submodule).
+  # `qm` does not compile native code, so build it first:
+  #
+  #     git submodule update --init --recursive
+  #     make -C sdk build && make -C native
+  #
+  # ⚠ These are runtime detours, never byte patches to the shipped exe. `.rdata` registration-table
+  # writes trip SecuROM anti-tamper — a slot patch crashed early init — so everything goes through
+  # `.text` MinHook, which the cracked build tolerates.
+  #
+  # ⚠ m2-sdk.dll must be installed alongside. It is a LOAD-TIME import: without it the plugin does
+  # not load at all and cannot say why (0x8007007E, before any of its code runs).
+  #
+  # `touches` lists every hooked address. All ten were taken from their Lua binding-table slots and
+  # re-verified against the target build — the register cites addresses INSIDE these bodies, which
+  # are not hookable.
+  - kind: native_hook
+    target: retail
+    plugin: src/unofficial_patch.asi
+    touches:
+      # BUG-004 — the five profile setters that never dirty the autosave flag
+      - "0x005DF480"   # Player.SetCash
+      - "0x005DF720"   # Player.SetFuelCapacity
+      - "0x005DF7D0"   # Player.SetProfileCharacter
+      - "0x005DF920"   # Player.SetProfileCostume
+      - "0x005DFB40"   # Player.SetAvailableCostumes
+      # BUG-007 — three PDA blip binders that dereference NULL
+      - "0x005BCE70"   # _GuiInternal.AddPdaMapBlips
+      - "0x005BCF90"   # _GuiInternal.UpdatePdaBlip
+      - "0x005BD0C0"   # _GuiInternal.RemovePdaBlip
+      # BUG-008 — Gui.ShowLoadingHints(false) never clears the flag
+      - "0x005B4C30"   # Gui.ShowLoadingHints
+      # BUG-009 — Pg.UnloadLayer NULL-derefs on a co-op client
+      - "0x005D4E40"   # Pg.UnloadLayer
+
+  # The per-fix switches the .asi reads at startup. Ships beside the plugin, because a fix that
+  # cannot be turned off without a rebuild is a fix nobody can bisect when something breaks.
+  - kind: place_file
+    file: src/unofficial_patch.ini
+    dest: scripts
