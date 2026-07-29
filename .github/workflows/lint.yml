@@ -26,7 +26,11 @@ jobs:
   lint:
     runs-on: ubuntu-latest
     steps:
+      # `submodules: recursive` is required: the plugin links against the m2 SDK, which lives in
+      # sdk/. Without it the build below fails on a missing header rather than on anything real.
       - uses: actions/checkout@v4
+        with:
+          submodules: recursive
 
       # `qm` ships as a prebuilt binary, so nothing here needs a Rust toolchain.
       - name: Install qm
@@ -57,6 +61,25 @@ jobs:
           echo "qm $QM_VERSION verified: $got"
           chmod +x qm
 
+      # ★ The plugin has to be BUILT before qm can lint the manifest that references it.
+      #
+      # `unofficial_patch.asi` is a build artifact and is gitignored — committing a binary is how a
+      # consumer ends up shipping a stale one. So `native_hook`'s `plugin:` path does not exist in a
+      # fresh checkout, and qm reports M0110 (the file does not exist) as an ERROR, which is correct
+      # of it.
+      #
+      # Building here is not a workaround; it is the coverage we were missing. Every push now proves
+      # the SDK compiles for the 32-bit target, the plugin compiles against it, and the result really
+      # imports m2-sdk.dll rather than having silently linked its own copy.
+      - name: Install the 32-bit MinGW cross-compiler
+        run: sudo apt-get update && sudo apt-get install -y gcc-mingw-w64-i686
+
+      - name: Build the m2 SDK and the plugin
+        run: |
+          set -euo pipefail
+          make -C sdk build
+          make -C native verify
+
       # Hermetic: no game install, no retail WADs, no network beyond fetching qm. That is what lets
       # this run on a public runner at all — the rules needing the game are a separate set that runs
       # during `qm build`.
@@ -69,8 +92,7 @@ jobs:
       - name: Lint this Shipment
         run: ./qm lint .
 
-      # The plugin is not built here — that needs a 32-bit MinGW cross-compiler and the SDK submodule
-      # — but a manifest pointing at a path someone renamed should not survive until a release.
+      # A manifest pointing at a path someone renamed should not survive to a release.
       - name: The manifest's declared sources exist
         run: |
           set -euo pipefail
