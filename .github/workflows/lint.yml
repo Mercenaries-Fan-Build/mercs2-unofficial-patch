@@ -11,16 +11,26 @@ on:
 # the release asset, which is the same thing you would be copying by hand — so pinning it here would
 # add a second place to get out of date without adding any assurance.
 #
-# ⚠ The floor is set by the MANIFEST, not by taste. v0.10.3 is the first release with `place_file`,
-# which this Shipment uses to place the plugin's .ini — an older `qm` cannot even PARSE the manifest
-# ("unknown variant `place_file`") and fails at lint, not at build.
+# ⚠ **v0.11.0 IS NOT RELEASED YET. THIS WORKFLOW FAILS UNTIL IT IS — deliberately.**
 #
-# ⚠ BUILDING needs newer still: every Lua target here is a `resident` module, and reaching that
-# block landed after v0.10.3 and is not yet in any release. Lint is hermetic and resolves no script,
-# so it passes; `qm build` on a released binary fails with "not in this scripts block". Bump this
-# once a release carries resident support.
+# The failure is loud and names itself ("... is not in v0.11.0 — check the version pin"), so a red
+# build here means the dependency has not landed, NOT that something in this repo is broken. Do not
+# "fix" it by pinning backwards.
+#
+# Pinned forward on purpose, because two separate things this Shipment needs are ahead of v0.10.3:
+#
+#   - `place_file`, which places the plugin's .ini. Older `qm` cannot even PARSE the manifest
+#     ("unknown variant `place_file`") — that is a LINT failure, not a build one. (Landed in
+#     v0.10.3, so this part alone would be satisfied there.)
+#   - reaching the `resident` scripts block. Every Lua target here is a resident module, and no
+#     RELEASED `qm` can resolve them yet. Lint is hermetic and resolves no script, so it passes
+#     regardless; `qm build` fails with "not in this scripts block".
+#
+# So v0.10.3 lints but cannot build this Shipment. v0.11.0 is the first release expected to do both.
+# If it ships without resident-block support, lint will go green while `qm build` still fails — the
+# thing to check in that case is the release, not this file.
 env:
-  QM_VERSION: v0.10.3
+  QM_VERSION: v0.11.0
 
 jobs:
   lint:
