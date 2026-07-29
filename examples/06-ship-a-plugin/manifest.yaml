@@ -1,0 +1,45 @@
+# SHIPPING NATIVE CODE — the Code layer.
+#
+# This is the one kind that does NOT go into a WAD. An `.asi` is a DLL that `pmc_bb.dll` loads into
+# the running game, so it is placed as a FILE in the loader's search path. The build emits it plus a
+# placement record naming where it goes and its sha256 — a WAD overlay is undone by deleting one
+# file, but a file drop cannot be backed out unless something wrote down what was placed and where.
+#
+# You do not name the destination. There is no `dest:` field, deliberately: if an author could name
+# a path, the game executable and vz.wad would be reachable. The builder picks it.
+#
+# ⚠ A prebuilt .asi is UNRESTRICTED NATIVE CODE running in the game process. The Quartermaster does
+# not compile it and cannot meaningfully inspect it. The digest proves the bytes are the ones the
+# author published — it says nothing about whether they are safe. Treat installing one exactly like
+# running any downloaded executable.
+#
+# To depend on SOMEONE ELSE'S plugin, do not vendor their binary — use `load.requires` with a pinned
+# url + sha256 (see the root manifest.yaml).
+#
+# Build:  qm build . --out build      (needs qm > v0.10.1)
+format: 1
+shipment:
+  name: ship-a-plugin
+  version: 1.0.0
+  target: retail
+  description: Places an ASI plugin in the loader's search path.
+
+contributions:
+  - kind: native_hook
+    # `retail` only. pmc_bb.dll is a retail mechanism, so attaching a plugin to `reimpl` ships a
+    # file that will never be loaded — that is M0160.
+    target: retail
+
+    # Must end in `.asi`: the loader globs `*.asi` across the game folder and scripts/plugins/update.
+    # Any other extension sits in the right place, hashes correctly, and does nothing.
+    #
+    # src/example-plugin.asi here is a 152-byte, header-only PE stub with no code in it — enough to
+    # be a valid DLL header and nothing more. It exists so this example builds; it is not a plugin.
+    # Regenerate or replace it with your own build.
+    plugin: src/example-plugin.asi
+
+    # What this hook touches, so the conflict system can see it. Hook claims are EXCLUSIVE keyed on
+    # the address: two plugins hooking one address is a hard error, not a load-order suggestion,
+    # because plugin discovery is filesystem order across four directories — there is no ordering
+    # that resolves it.
+    touches: ["0x004CF340"]

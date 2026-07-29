@@ -1,0 +1,40 @@
+# ADDING AN OUTFIT — the composed kind, and the one the community asks for most.
+#
+# One block in the manifest, two contributions underneath: a Data half (your geometry, injected
+# against a donor's rig) and a Script half (a row in the wardrobe table). You do not write the Lua —
+# the Quartermaster generates the row and derives the availability count from the final list length.
+#
+# That derivation is not a convenience, it is the whole point. Two mods each appending one outfit and
+# each hard-coding "one more outfit" produce the same number: both outfits are in the WAD, both in
+# the table, and one is permanently unreachable.
+#
+# Build:  qm build . --out build --corpus <corpus>
+format: 1
+shipment:
+  name: add-an-outfit
+  version: 1.0.0
+  target: retail
+  description: Adds a wearable outfit for Mattias.
+
+contributions:
+  - kind: add_outfit
+    # The ASSET identity — hashed, and what Player.SetOutfit ultimately receives.
+    name: mattias_example_outfit
+
+    # The wardrobe's key. Merged on (wearer, slug), NOT slug alone: retail reuses `Original` and
+    # `ChickenSuit` across all three heroes, so slug alone would collide between them.
+    slug: ExampleOutfit
+
+    # Shown in the wardrobe menu.
+    display: Example Outfit
+
+    # chris | jennifer | mattias. Anything else is M0140 — there is no list to append to, so the
+    # outfit would be added to a table nothing reads and simply never appear.
+    wearer: mattias
+
+    # Placeholder cube (see ../02-add-a-model). Replace with a real export.
+    model: src/model.gltf
+
+    # Whose rig and materials to borrow. A READ, never a write — many Shipments may borrow one donor
+    # without conflicting. Use the hero you are dressing.
+    donor: pmc_hum_mattias

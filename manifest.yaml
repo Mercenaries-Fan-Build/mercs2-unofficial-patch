@@ -1,0 +1,100 @@
+# A Shipment manifest.
+#
+# This one does two things at once, on purpose — they are the two halves of modding this game:
+#
+#   1. OVERWRITES existing content  (Mattias's skin texture)
+#   2. ADDS new content             (a new outfit, which is geometry + a wardrobe entry)
+#
+# It builds and loads as-is. Change one field at a time and re-run `qm lint .` to see what happens.
+#
+# Every kind is documented in examples/ with a runnable Shipment for each.
+
+format: 1
+
+shipment:
+  # Lowercase, dashes, <= 64 chars. Becomes build/<name>.wad, and is how other Shipments refer to
+  # yours in `load.requires` / `load.conflicts`.
+  name: my-shipment
+  version: 1.0.0
+
+  # `retail` is the shipped game; `reimpl` is the fan-build engine. There is no value meaning
+  # "both" — the layers differ (ASI plugins exist only on retail), so a Shipment claiming both has
+  # almost certainly been tested against neither.
+  target: retail
+
+  authors: [your-name-here]
+  description: Example Shipment — reskins Mattias and adds an outfit.
+  license: MIT
+
+contributions:
+  # ─────────────────────────────────────────────────────────────────────────────
+  # OVERWRITE — same asset, your bytes.
+  # ─────────────────────────────────────────────────────────────────────────────
+  #
+  # Keeps the game's hash and replaces what that hash resolves to. The base WAD is never modified;
+  # your overlay just wins the lookup.
+  #
+  # Merge class: LastWins. If another installed Shipment replaces this same texture, load order
+  # decides — and that is a legitimate answer here, unlike Lua (see below).
+  - kind: replace_texture
+    # The NAME, never the hash. The engine's hash is one-way, so a hash cannot be turned back into
+    # a name — a manifest full of hashes is unreadable and undiffable. `qm` hashes this for you.
+    target: pmc_hum_mattias_v3_ub
+
+    # Must match the target's dimensions (512x512 here). A replacement is same-hash and fully
+    # resident, so a mismatch is a hard error rather than something the builder can silently
+    # rescale.
+    #
+    # Pick targets carefully: `pmc_hum_*` hero textures are FULLY RESIDENT (whole mip chain in one
+    # block), which is why this one is clean. Most world textures STREAM their finer mips from
+    # other blocks, and replacing one of those with a single resident block stops it streaming —
+    # `qm build` warns (M0007) when you pick one.
+    image: src/skin.png
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # ADD — new content that did not exist before.
+  # ─────────────────────────────────────────────────────────────────────────────
+  #
+  # This is the composed case, and the most instructive one in the format: it lowers into BOTH a
+  # Data contribution (the geometry, injected against a donor's rig) and a Script contribution (a
+  # row in the wardrobe table). You write one block; the Quartermaster emits both halves.
+  - kind: add_outfit
+    # ASSET identity — hashed, and what `Player.SetOutfit` ultimately receives.
+    name: mattias_template_outfit
+
+    # The wardrobe's own key. The merge key is (wearer, slug), NOT slug alone: retail reuses
+    # `Original` and `ChickenSuit` across all three heroes, so slug alone would collide.
+    slug: TemplateOutfit
+
+    # What the player reads in the wardrobe menu.
+    display: Template Outfit
+
+    # chris | jennifer | mattias. Anything else is M0140 — the wardrobe has no list to append to.
+    wearer: mattias
+
+    # Your geometry. src/model.gltf is a placeholder CUBE so this repo builds out of the box —
+    # replace it with a real export. See examples/02-add-new-content/ for the details.
+    model: src/model.gltf
+
+    # The asset whose rig and materials are BORROWED. This is a READ, not a write: many Shipments
+    # may borrow the same donor without conflicting.
+    #
+    # Required today — donor auto-pick is not implemented, and picking wrong fails quietly rather
+    # than loudly, so the format makes you say it.
+    donor: pmc_hum_mattias
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Optional: how this Shipment relates to others.
+# ─────────────────────────────────────────────────────────────────────────────
+#
+# Most cross-Shipment references are COMPUTED from what you declare above, not written here. This
+# block is only for what the Quartermaster cannot infer.
+#
+# load:
+#   after: [some-other-mod]        # ordering hints, for LastWins claims
+#   before: []
+#   conflicts: [an-incompatible-mod]
+#   requires:
+#     - name: some-asi-plugin
+#       url: https://github.com/owner/repo/releases/download/v1.0/plugin.asi
+#       sha256: 0000000000000000000000000000000000000000000000000000000000000000

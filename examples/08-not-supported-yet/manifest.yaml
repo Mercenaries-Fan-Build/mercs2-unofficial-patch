@@ -1,0 +1,29 @@
+# A kind that LINTS but does not BUILD — on purpose.
+#
+# `edit_state_machine` parses and passes every hermetic rule, so `qm lint` is happy. `qm build`
+# refuses it, and names four separate gaps rather than saying "not implemented":
+#
+#   * no serializer — the state machine parses into a decoded VIEW with no descriptor indices or
+#     offsets, so it cannot be written back out
+#   * it is a nested container inside the model container, so writing means rebuilding the
+#     descriptor table, re-basing sibling offsets and recomputing the CSUM
+#   * `states:` has no schema anywhere; defining one is a format change
+#   * nothing could verify the result — wad_simulator explicitly does not catch this class of
+#     corruption, which faults at model instantiation instead
+#
+# It is left refusing rather than half-implemented because the failure mode here is a WAD that looks
+# correct and does nothing. See ../07-raw-bytes for how to ship a hand-built block today.
+#
+# This example exists so the difference between `lint` and `build` is concrete: passing the linter
+# means your manifest is well-formed, not that everything in it can be produced.
+format: 1
+shipment:
+  name: not-supported-yet
+  version: 1.0.0
+  target: retail
+  description: Demonstrates a kind that lints but cannot be built yet.
+
+contributions:
+  - kind: edit_state_machine
+    target: al_veh_boat_destroyer
+    states: src/states.txt

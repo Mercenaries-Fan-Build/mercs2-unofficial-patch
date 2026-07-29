@@ -1,0 +1,10 @@
+# FAILS ON PURPOSE — M0110, exit code 1.
+#
+# `src/skin.png` is not in this directory. Without the check you would build a WAD, install it, and
+# find the texture unchanged with nothing anywhere explaining why.
+format: 1
+shipment: { name: missing-file, version: 1.0.0, target: retail }
+contributions:
+  - kind: replace_texture
+    target: pmc_hum_mattias_v3_ub
+    image: src/skin.png

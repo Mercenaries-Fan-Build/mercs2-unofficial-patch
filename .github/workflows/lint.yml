@@ -1,0 +1,109 @@
+name: Lint
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+# The version of `qm` this Shipment is checked against. Bump it to pick up new rules.
+#
+# There is no digest to bump alongside it: the expected sha256 is read from GitHub's own record of
+# the release asset, which is the same thing you would be copying by hand — so pinning it here would
+# add a second place to get out of date without adding any assurance.
+env:
+  QM_VERSION: v0.10.2
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # `qm` ships as a prebuilt binary, so nothing here needs a Rust toolchain.
+      - name: Install qm
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          repo=Mercenaries-Fan-Build/mercs2-wad-simulator
+          asset=qm-linux-x86_64
+
+          # GitHub records a sha256 for every release asset. Read it BEFORE downloading, so the
+          # check is against what the release claims to hold rather than against the bytes that
+          # happened to arrive.
+          want=$(gh api "repos/$repo/releases/tags/$QM_VERSION" \
+            --jq ".assets[] | select(.name == \"$asset\") | .digest")
+          if [ -z "$want" ]; then
+            echo "::error::$asset is not in $QM_VERSION — check the version pin in this workflow"
+            exit 1
+          fi
+          want=${want#sha256:}
+
+          gh release download "$QM_VERSION" --repo "$repo" --pattern "$asset" --output qm
+          got=$(sha256sum qm | cut -d' ' -f1)
+          if [ "$want" != "$got" ]; then
+            echo "::error::$asset failed verification — expected $want, got $got"
+            exit 1
+          fi
+          echo "qm $QM_VERSION verified: $got"
+          chmod +x qm
+
+      # Hermetic: no game install, no retail WADs, no network beyond fetching qm. That is what lets
+      # this run on a public runner at all — the rules needing the game are a separate set that runs
+      # during `qm build`.
+      #
+      # Gated on the EXIT CODE, not on what gets printed.
+      - name: Lint this Shipment
+        run: ./qm lint .
+
+      # Every example must lint clean too, or the teaching material rots the first time a rule
+      # changes and nobody notices.
+      #
+      # 08 is in this list deliberately. `edit_state_machine` LINTS clean and fails only at build —
+      # that gap is the lesson it teaches, so a lint failure there would mean something else broke.
+      - name: Lint the examples that should pass
+        run: |
+          set -euo pipefail
+          for d in examples/01-* examples/02-* examples/03-* examples/04-* \
+                   examples/05-*/alpha examples/05-*/beta \
+                   examples/06-* examples/07-* examples/08-* \
+                   examples/09-*/unmergeable-script; do
+            echo "── $d"
+            ./qm lint "$d"
+          done
+
+      # The counterpart, and the one that actually keeps the others honest: these examples exist to
+      # DEMONSTRATE failures, so a clean exit means the rule they teach has stopped firing. Without
+      # this the pass-only checks above would still be green with the whole linter disabled.
+      - name: The failing examples must actually fail
+        run: |
+          set -uo pipefail
+          rc=0
+          for d in examples/09-*/missing-file examples/09-*/two-claims-one-target; do
+            echo "── $d (expected to fail)"
+            if ./qm lint "$d"; then
+              echo "::error::$d was expected to fail lint but passed — the rule it demonstrates is no longer firing"
+              rc=1
+            fi
+          done
+          exit $rc
+
+      # Every kind in the format must be demonstrated by an example. Without this the examples drift
+      # behind the format silently — a new kind lands, nothing here fails, and the teaching material
+      # quietly stops being complete.
+      - name: Every contribution kind is covered
+        run: |
+          set -euo pipefail
+          missing=""
+          for kind in replace_texture add_model add_outfit patch_lua native_hook raw edit_state_machine; do
+            grep -rqs "kind: $kind" manifest.yaml examples/ || missing="$missing $kind"
+          done
+          if [ -n "$missing" ]; then
+            echo "::error::no example demonstrates:$missing"
+            exit 1
+          fi
+          echo "all seven kinds are demonstrated"
+
+      - name: What was checked
+        if: always()
+        run: ./qm rules
