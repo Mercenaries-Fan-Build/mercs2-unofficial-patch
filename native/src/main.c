@@ -1,0 +1,145 @@
+/* The fix pack's entry point. Reads the .ini, then installs each enabled bug module.
+ *
+ * Deliberately contains no fix logic of its own — every behaviour change lives in a bug_NNN_*.c
+ * next to this file, so "what does the pack do to my game" is answerable by listing a directory.
+ */
+#include "fixpack.h"
+
+#include <string.h>
+
+/* BUG-005 and BUG-011 are deliberately absent — see the note in fixpack.h. Both are real; neither
+ * has a fix derivable from static evidence, and each is blocked on one named observation. */
+static FixpackModule g_modules[] = {
+    { "BUG-004", "profile changes to cash/fuel-capacity/character/costume are not autosaved",
+      bug_004_install, 1 },
+    { "BUG-007", "three PDA blip binders crash on a stale or out-of-range blip id",
+      bug_007_install, 1 },
+    { "BUG-008", "Gui.ShowLoadingHints(false) never turns loading hints off",
+      bug_008_install, 1 },
+    { "BUG-009", "Pg.UnloadLayer crashes a co-op client with no current game state",
+      bug_009_install, 1 },
+};
+
+#define MODULE_COUNT ((int)(sizeof(g_modules) / sizeof(g_modules[0])))
+
+/* Only ever hook the build the addresses were verified against.
+ *
+ * Every VA in this pack was read out of one specific image. On any other build those addresses point
+ * at whatever happens to live there, and MinHook would splice a JMP into it — so the failure mode of
+ * guessing wrong is not "the fix does not work", it is arbitrary corruption. Refuse instead.
+ */
+int fixpack_target_is_supported(void) {
+    HMODULE exe = GetModuleHandleA(NULL);
+    IMAGE_DOS_HEADER* dos;
+    IMAGE_NT_HEADERS32* nt;
+
+    if (!exe) return 0;
+    dos = (IMAGE_DOS_HEADER*)exe;
+    if (dos->e_magic != IMAGE_DOS_SIGNATURE) return 0;
+    nt = (IMAGE_NT_HEADERS32*)((BYTE*)exe + dos->e_lfanew);
+    if (nt->Signature != IMAGE_NT_SIGNATURE) return 0;
+    if (nt->FileHeader.Machine != IMAGE_FILE_MACHINE_I386) return 0;
+
+    /* SizeOfImage is the LOADED footprint, not the on-disk size — 53,485,568 against a 53,482,288
+     * byte file — so it is compared against a value read out of this build's own PE header rather
+     * than against the file size the register quotes.
+     *
+     * Checked alongside the header checksum, because SizeOfImage alone is coarse: two builds can
+     * round to the same loaded footprint while their .text differs entirely, and it is .text these
+     * addresses point into.
+     */
+    if (nt->OptionalHeader.SizeOfImage != FIXPACK_TARGET_SIZE_OF_IMAGE) {
+        m2_logf("  target check: SizeOfImage %lu, expected %lu",
+                (unsigned long)nt->OptionalHeader.SizeOfImage,
+                (unsigned long)FIXPACK_TARGET_SIZE_OF_IMAGE);
+        return 0;
+    }
+    if (nt->OptionalHeader.CheckSum != FIXPACK_TARGET_CHECKSUM) {
+        m2_logf("  target check: CheckSum 0x%08lX, expected 0x%08lX",
+                (unsigned long)nt->OptionalHeader.CheckSum,
+                (unsigned long)FIXPACK_TARGET_CHECKSUM);
+        return 0;
+    }
+    if (nt->OptionalHeader.ImageBase != FIXPACK_TARGET_IMAGE_BASE) {
+        m2_logf("  target check: ImageBase 0x%08lX, expected 0x%08lX",
+                (unsigned long)nt->OptionalHeader.ImageBase,
+                (unsigned long)FIXPACK_TARGET_IMAGE_BASE);
+        return 0;
+    }
+    return 1;
+}
+
+static void OnIniKey(void* ud, const char* key, const char* value) {
+    int i;
+    (void)ud;
+    for (i = 0; i < MODULE_COUNT; i++) {
+        /* `bug_004 = 0` disables BUG-004. Case-insensitive, underscore form, so the key a user types
+         * looks like the id they read in the register. */
+        char want[16];
+        int n = (int)strlen(g_modules[i].id);
+        if (n >= (int)sizeof(want)) continue;
+        memcpy(want, g_modules[i].id, (size_t)n + 1);
+        want[3] = '_';                       /* "BUG-004" -> "BUG_004" */
+        if (lstrcmpiA(key, want) == 0) {
+            g_modules[i].enabled = m2_ini_bool(value);
+            return;
+        }
+    }
+}
+
+static DWORD WINAPI Install(LPVOID unused) {
+    char ini[MAX_PATH];
+    int i, armed = 0, failed = 0;
+    (void)unused;
+
+    m2_module_path(M2_SELF_MODULE, "unofficial_patch.ini", ini, sizeof(ini));
+    m2_ini_parse(ini, OnIniKey, NULL);
+
+    if (!m2_hook_init()) {
+        m2_logf("FATAL: MinHook would not initialise; no fixes installed");
+        return 0;
+    }
+
+    for (i = 0; i < MODULE_COUNT; i++) {
+        if (!g_modules[i].enabled) {
+            m2_logf("%s  skipped (disabled in unofficial_patch.ini)", g_modules[i].id);
+            continue;
+        }
+        if (g_modules[i].install()) {
+            m2_logf("%s  armed   — %s", g_modules[i].id, g_modules[i].summary);
+            armed++;
+        } else {
+            /* Loud, and specific about which one. A fix pack that silently arms 5 of 6 is a support
+             * nightmare: the player reports "the patch does not work" and nobody knows which half. */
+            m2_logf("%s  FAILED  — %s", g_modules[i].id, g_modules[i].summary);
+            failed++;
+        }
+    }
+    m2_logf("%d armed, %d failed, %d disabled", armed, failed,
+            MODULE_COUNT - armed - failed);
+    return 0;
+}
+
+BOOL WINAPI DllMain(HINSTANCE inst, DWORD reason, LPVOID reserved) {
+    (void)reserved;
+    if (reason != DLL_PROCESS_ATTACH) return TRUE;
+    DisableThreadLibraryCalls(inst);
+
+    /* Refuse to load against an m2-sdk.dll older than the header we compiled against: the loader
+     * binds by name only, so a changed signature would link and then corrupt the stack. */
+    if (!m2_abi_ok()) return FALSE;
+
+    m2_log_init(inst);
+    m2_logf("Mercenaries 2 unofficial patch, m2 %s", m2_version_string());
+
+    if (!fixpack_target_is_supported()) {
+        m2_logf("FATAL: this is not the build the addresses were verified against; nothing installed");
+        return TRUE;   /* stay loaded so the log survives; just do nothing */
+    }
+
+    /* Hooking happens off the loader lock. pmc_bb loads plugins from its own DllMain, so everything
+     * here runs nested inside it — and MinHook's Freeze() enumerates and suspends every thread in
+     * the process, which is not something to do while holding the loader lock. */
+    CreateThread(NULL, 0, Install, NULL, 0, NULL);
+    return TRUE;
+}
