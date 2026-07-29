@@ -4,3 +4,7 @@ build/
 
 .DS_Store
 Thumbs.db
+
+# Built native artifact. Reproduced by `make -C sdk build && make -C native`; a committed binary is
+# the one a consumer accidentally ships instead of the one they just built.
+src/unofficial_patch.asi
