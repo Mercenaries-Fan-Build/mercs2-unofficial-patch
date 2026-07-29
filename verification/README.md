@@ -13,6 +13,7 @@ happen is not a verified fix.
 | [BUG-008](BUG-008.md) | T3 | built — loading hints cannot be turned off |
 | [BUG-009](BUG-009.md) | T3 | built — co-op client crash |
 | [BUG-010](BUG-010.md) | — | **NOT A BUG.** Nothing ships. Recorded so it is not re-derived. |
+| [T1-text](T1-text.md) | T1 | tooling ready, **nothing shipped** — each item blocked on one observation |
 
 Not shipped: **BUG-005** and **BUG-011**. Both real, neither derivable from static evidence — see the
 note in [`native/src/fixpack.h`](../native/src/fixpack.h) for the single observation each needs.
