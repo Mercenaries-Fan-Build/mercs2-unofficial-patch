@@ -11,12 +11,16 @@ on:
 # the release asset, which is the same thing you would be copying by hand — so pinning it here would
 # add a second place to get out of date without adding any assurance.
 #
-# ⚠ This pin only has to be new enough to LINT. BUILDING this Shipment needs a `qm` that can reach
-# the `resident` scripts block — every Lua target here is a resident module — which landed after
-# v0.10.2. Lint is hermetic and resolves no script, so it passes on the older pin; `qm build` on it
-# would fail with "not in this scripts block".
+# ⚠ The floor is set by the MANIFEST, not by taste. v0.10.3 is the first release with `place_file`,
+# which this Shipment uses to place the plugin's .ini — an older `qm` cannot even PARSE the manifest
+# ("unknown variant `place_file`") and fails at lint, not at build.
+#
+# ⚠ BUILDING needs newer still: every Lua target here is a `resident` module, and reaching that
+# block landed after v0.10.3 and is not yet in any release. Lint is hermetic and resolves no script,
+# so it passes; `qm build` on a released binary fails with "not in this scripts block". Bump this
+# once a release carries resident support.
 env:
-  QM_VERSION: v0.10.2
+  QM_VERSION: v0.10.3
 
 jobs:
   lint:
