@@ -1,0 +1,119 @@
+name: Release
+
+# Cut a release whose manifest version matches the tag — by construction.
+#
+# `shipment.version` in manifest.yaml is what mercs.ink reads as authoritative; the git tag is a
+# separate field it carries alongside (see the modkit mercs.ink client: manifest version wins, the
+# release tag is the fallback). A release is only correct when the two agree, so this workflow makes
+# them agree rather than checking after the fact: you name the version, it stamps manifest.yaml,
+# commits that, and cuts the tag ON the stamped commit. The tag can never point at a tree whose
+# manifest disagrees with it.
+#
+# ⚠ Why this is dispatch-driven, not "on: push: tags". A tag is immutable once it points at a
+# commit. If we triggered on a pushed tag and stamped afterwards, the edit would land on the branch,
+# not in the tag's own tree — so the released tree would still carry the old version. The only order
+# that keeps the tagged tree correct is stamp -> commit -> tag, which means the version has to arrive
+# BEFORE the tag exists. Hence `workflow_dispatch` with a version input.
+#
+# ⚠ The plugin and WADs are NOT built here. `qm build` needs the retail game corpus, which a public
+# runner does not have (that is exactly why lint.yml is hermetic). Build unofficial_patch.asi and the
+# WADs locally and attach them to the release this creates.
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Release version, X.Y.Z (no leading v)"
+        required: true
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  # ── Normal path ────────────────────────────────────────────────────────────────────────────────
+  # You Run-workflow with a version. We stamp the manifest, commit it, then tag + release from the
+  # stamped commit — so the tag's tree already carries the matching version.
+  stamp-and-release:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          fetch-depth: 0
+
+      - name: Normalise and validate the version
+        id: v
+        run: |
+          set -euo pipefail
+          VERSION="${{ inputs.version }}"
+          VERSION="${VERSION#v}"          # tolerate a pasted leading v
+          case "$VERSION" in
+            [0-9]*.[0-9]*.[0-9]*) ;;
+            *) echo "::error::'$VERSION' is not an X.Y.Z version"; exit 1 ;;
+          esac
+          if git ls-remote --exit-code --tags origin "refs/tags/v$VERSION" >/dev/null 2>&1; then
+            echo "::error::tag v$VERSION already exists — pick a new version"; exit 1
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Stamp shipment.version in manifest.yaml
+        run: |
+          set -euo pipefail
+          VERSION="${{ steps.v.outputs.version }}"
+          # Rewrite the first `version:` line only — that is the shipment one; `format:` is a
+          # different key. The `0,/re/` range confines the edit to the first match, and the leading
+          # whitespace is preserved via the capture group.
+          sed -i "0,/^[[:space:]]*version:/s/^\([[:space:]]*\)version:.*/\1version: $VERSION/" manifest.yaml
+          got=$(sed -n 's/^[[:space:]]*version:[[:space:]]*\([^[:space:]#]*\).*/\1/p' manifest.yaml | head -1)
+          [ "$got" = "$VERSION" ] || { echo "::error::stamp failed — manifest reads '$got'"; exit 1; }
+          echo "manifest.yaml now at $VERSION"
+
+      - name: Commit the stamp, tag it, and cut the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          VERSION="${{ steps.v.outputs.version }}"
+          BRANCH="${{ github.event.repository.default_branch }}"
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          if git diff --quiet -- manifest.yaml; then
+            echo "manifest already at $VERSION — tagging the current commit"
+          else
+            git add manifest.yaml
+            git commit -m "CI: stamp manifest version to $VERSION for release v$VERSION"
+            git push origin "HEAD:$BRANCH"
+          fi
+
+          git tag "v$VERSION"
+          git push origin "v$VERSION"
+          gh release create "v$VERSION" \
+            --title "v$VERSION" \
+            --generate-notes \
+            --target "$(git rev-parse HEAD)"
+          echo "Released v$VERSION. Build the plugin + WADs locally and attach them to this release."
+
+  # ── Safety net ─────────────────────────────────────────────────────────────────────────────────
+  # A tag pushed by hand can't have its tree stamped retroactively, so instead we refuse one whose
+  # committed manifest doesn't already match it. To cut a release the easy way, use the dispatch path
+  # above (Actions -> Release -> Run workflow) — it keeps the two in lockstep for you.
+  guard-hand-pushed-tag:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: manifest.yaml version must equal the tag
+        run: |
+          set -euo pipefail
+          TAG="${GITHUB_REF_NAME#v}"
+          MAN=$(sed -n 's/^[[:space:]]*version:[[:space:]]*\([^[:space:]#]*\).*/\1/p' manifest.yaml | head -1)
+          if [ "$TAG" != "$MAN" ]; then
+            echo "::error::tag v$TAG but manifest.yaml says $MAN. Cut releases via the Release workflow (Actions -> Release -> Run workflow) so the two are stamped together, or bump manifest.yaml to $TAG before tagging."
+            exit 1
+          fi
+          echo "manifest $MAN matches tag v$TAG"
