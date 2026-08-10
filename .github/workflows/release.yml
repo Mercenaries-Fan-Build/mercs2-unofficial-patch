@@ -1,24 +1,5 @@
 name: Release
 
-# Cut a release whose manifest version matches the tag — by construction.
-#
-# `shipment.version` in manifest.yaml is what mercs.ink reads as authoritative; the git tag is a
-# separate field it carries alongside (see the modkit mercs.ink client: manifest version wins, the
-# release tag is the fallback). A release is only correct when the two agree, so this workflow makes
-# them agree rather than checking after the fact: you name the version, it stamps manifest.yaml,
-# commits that, and cuts the tag ON the stamped commit. The tag can never point at a tree whose
-# manifest disagrees with it.
-#
-# ⚠ Why this is dispatch-driven, not "on: push: tags". A tag is immutable once it points at a
-# commit. If we triggered on a pushed tag and stamped afterwards, the edit would land on the branch,
-# not in the tag's own tree — so the released tree would still carry the old version. The only order
-# that keeps the tagged tree correct is stamp -> commit -> tag, which means the version has to arrive
-# BEFORE the tag exists. Hence `workflow_dispatch` with a version input.
-#
-# ⚠ The plugin and WADs are NOT built here. `qm build` needs the retail game corpus, which a public
-# runner does not have (that is exactly why lint.yml is hermetic). Build unofficial_patch.asi and the
-# WADs locally and attach them to the release this creates.
-
 on:
   workflow_dispatch:
     inputs:
@@ -33,9 +14,6 @@ permissions:
   contents: write
 
 jobs:
-  # ── Normal path ────────────────────────────────────────────────────────────────────────────────
-  # You Run-workflow with a version. We stamp the manifest, commit it, then tag + release from the
-  # stamped commit — so the tag's tree already carries the matching version.
   stamp-and-release:
     if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
@@ -44,13 +22,14 @@ jobs:
         with:
           ref: ${{ github.event.repository.default_branch }}
           fetch-depth: 0
+          submodules: recursive   # the plugin links against the m2 SDK in sdk/
 
       - name: Normalise and validate the version
         id: v
         run: |
           set -euo pipefail
           VERSION="${{ inputs.version }}"
-          VERSION="${VERSION#v}"          # tolerate a pasted leading v
+          VERSION="${VERSION#v}"
           case "$VERSION" in
             [0-9]*.[0-9]*.[0-9]*) ;;
             *) echo "::error::'$VERSION' is not an X.Y.Z version"; exit 1 ;;
@@ -64,24 +43,39 @@ jobs:
         run: |
           set -euo pipefail
           VERSION="${{ steps.v.outputs.version }}"
-          # Rewrite the first `version:` line only — that is the shipment one; `format:` is a
-          # different key. The `0,/re/` range confines the edit to the first match, and the leading
-          # whitespace is preserved via the capture group.
           sed -i "0,/^[[:space:]]*version:/s/^\([[:space:]]*\)version:.*/\1version: $VERSION/" manifest.yaml
           got=$(sed -n 's/^[[:space:]]*version:[[:space:]]*\([^[:space:]#]*\).*/\1/p' manifest.yaml | head -1)
           [ "$got" = "$VERSION" ] || { echo "::error::stamp failed — manifest reads '$got'"; exit 1; }
-          echo "manifest.yaml now at $VERSION"
 
-      - name: Commit the stamp, tag it, and cut the release
+      - name: Install the 32-bit MinGW cross-compiler
+        run: sudo apt-get update && sudo apt-get install -y gcc-mingw-w64-i686
+
+      - name: Build the m2 SDK and the plugin
+        run: |
+          set -euo pipefail
+          make -C sdk build
+          make -C native verify
+
+      - name: Package the shipment source tree (with the built plugin)
+        id: pkg
+        run: |
+          set -euo pipefail
+          ASSET="mercs2-unofficial-patch-v${{ steps.v.outputs.version }}.zip"
+          test -f src/unofficial_patch.asi || { echo "::error::plugin not built — refusing to package"; exit 1; }
+          zip -r "$ASSET" manifest.yaml src native verification README.md LICENSE -x 'build/*' '*/build/*'
+          unzip -l "$ASSET" | grep -q 'src/unofficial_patch.asi' || { echo "::error::asset is missing the plugin"; exit 1; }
+          echo "asset=$ASSET" >> "$GITHUB_OUTPUT"
+
+      - name: Commit the stamp, tag it, and cut the release with the asset attached
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           VERSION="${{ steps.v.outputs.version }}"
+          ASSET="${{ steps.pkg.outputs.asset }}"
           BRANCH="${{ github.event.repository.default_branch }}"
           git config user.name  "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-
           if git diff --quiet -- manifest.yaml; then
             echo "manifest already at $VERSION — tagging the current commit"
           else
@@ -89,31 +83,59 @@ jobs:
             git commit -m "CI: stamp manifest version to $VERSION for release v$VERSION"
             git push origin "HEAD:$BRANCH"
           fi
-
           git tag "v$VERSION"
           git push origin "v$VERSION"
-          gh release create "v$VERSION" \
-            --title "v$VERSION" \
-            --generate-notes \
-            --target "$(git rev-parse HEAD)"
-          echo "Released v$VERSION. Build the plugin + WADs locally and attach them to this release."
+          gh release create "v$VERSION" --title "v$VERSION" --generate-notes \
+            --target "$(git rev-parse HEAD)" "$ASSET"
 
-  # ── Safety net ─────────────────────────────────────────────────────────────────────────────────
-  # A tag pushed by hand can't have its tree stamped retroactively, so instead we refuse one whose
-  # committed manifest doesn't already match it. To cut a release the easy way, use the dispatch path
-  # above (Actions -> Release -> Run workflow) — it keeps the two in lockstep for you.
-  guard-hand-pushed-tag:
+  guard-and-attach:
     if: github.event_name == 'push'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
       - name: manifest.yaml version must equal the tag
+        id: v
         run: |
           set -euo pipefail
           TAG="${GITHUB_REF_NAME#v}"
           MAN=$(sed -n 's/^[[:space:]]*version:[[:space:]]*\([^[:space:]#]*\).*/\1/p' manifest.yaml | head -1)
           if [ "$TAG" != "$MAN" ]; then
-            echo "::error::tag v$TAG but manifest.yaml says $MAN. Cut releases via the Release workflow (Actions -> Release -> Run workflow) so the two are stamped together, or bump manifest.yaml to $TAG before tagging."
+            echo "::error::tag v$TAG but manifest.yaml says $MAN. Use the dispatch path, or bump manifest.yaml to $TAG before tagging."
             exit 1
           fi
-          echo "manifest $MAN matches tag v$TAG"
+          echo "version=$TAG" >> "$GITHUB_OUTPUT"
+
+      - name: Install the 32-bit MinGW cross-compiler
+        run: sudo apt-get update && sudo apt-get install -y gcc-mingw-w64-i686
+
+      - name: Build the m2 SDK and the plugin
+        run: |
+          set -euo pipefail
+          make -C sdk build
+          make -C native verify
+
+      - name: Package the shipment source tree (with the built plugin)
+        id: pkg
+        run: |
+          set -euo pipefail
+          ASSET="mercs2-unofficial-patch-v${{ steps.v.outputs.version }}.zip"
+          test -f src/unofficial_patch.asi || { echo "::error::plugin not built — refusing to package"; exit 1; }
+          zip -r "$ASSET" manifest.yaml src native verification README.md LICENSE -x 'build/*' '*/build/*'
+          unzip -l "$ASSET" | grep -q 'src/unofficial_patch.asi' || { echo "::error::asset is missing the plugin"; exit 1; }
+          echo "asset=$ASSET" >> "$GITHUB_OUTPUT"
+
+      - name: Create the release if absent, or attach the asset to an existing one
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          TAG="${GITHUB_REF_NAME}"
+          ASSET="${{ steps.pkg.outputs.asset }}"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" "$ASSET" --clobber
+          else
+            gh release create "$TAG" --title "$TAG" --generate-notes "$ASSET"
+          fi
