@@ -4,19 +4,22 @@ One card per bug. Each leads with **reproducing the bug**, not with installing t
 register's bar is "reproduced before, observed fixed after", and a fix for a failure nobody watched
 happen is not a verified fix.
 
-| card | tier | status going in |
+| card | tier | status |
 |---|---|---|
-| [BUG-001](BUG-001.md) | T2 | built — toolbox count inflates on reload (with BUG-003) |
-| [BUG-004](BUG-004.md) | T3 | built — **read this one first; it may be inert** |
-| [BUG-006](BUG-006.md) | T2 | built — hero swap refills the magazine and full-heals |
-| [BUG-007](BUG-007.md) | T3 | built — three PDA blip binders crash |
-| [BUG-008](BUG-008.md) | T3 | built — loading hints cannot be turned off |
+| [BUG-001](BUG-001.md) | T2 | 🟡 logic verified live — exclusion-set helper; symptom repro pending (BUG-003 untested) |
+| [BUG-004](BUG-004.md) | T3 | ✅ verified live — gate open at runtime, fix effective (was "may be inert") |
+| [BUG-005](BUG-005.md) | T3 | ⏳ parked — **observation obtained** live (slot mapping resolved); fix not yet written |
+| [BUG-006](BUG-006.md) | T2 | ✅ verified live — clip 3-tuple + guard, and health saves current not max |
+| [BUG-007](BUG-007.md) | T3 | ✅ verified live — all three binders survive an out-of-range id (AFTER path) |
+| [BUG-008](BUG-008.md) | T3 | ✅ verified live — flag clears on `false` (1→0), direct memory read (notify still out of scope) |
 | [BUG-009](BUG-009.md) | T3 | built — co-op client crash |
 | [BUG-010](BUG-010.md) | — | **NOT A BUG.** Nothing ships. Recorded so it is not re-derived. |
 | [T1-text](T1-text.md) | T1 | tooling ready, **nothing shipped** — each item blocked on one observation |
 
-Not shipped: **BUG-005** and **BUG-011**. Both real, neither derivable from static evidence — see the
-note in [`native/src/fixpack.h`](../native/src/fixpack.h) for the single observation each needs.
+Not shipped: **BUG-005** and **BUG-011**. Both real. BUG-005's blocking observation was **obtained live
+2026-08-11** — the applier's slot mapping is resolved (see [BUG-005](BUG-005.md)), so the fix is now
+writable, just not yet built. BUG-011 still needs its runtime registration path. See the note in
+[`native/src/fixpack.h`](../native/src/fixpack.h).
 
 ## Build
 

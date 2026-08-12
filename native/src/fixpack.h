@@ -74,7 +74,8 @@ int bug_009_install(void);   /* Pg.UnloadLayer NULL-derefs on a co-op client */
  *     Writing a replacement without that mapping means guessing which weapon lands in which slot.
  *     ⚠ The register's "2 primary + 2 secondary" is also wrong for this build — both caps are
  *     `cmp reg,4`, and both buckets are 4 dwords wide.
- *     NEEDED: the 4 slot values read at 0x005BF3A9 during a real hero swap.
+ *     RESOLVED 2026-08-11 (live capture, two hero swaps): eax->slot1, ecx->slot2, [esp+0x34]->slot3,
+ *     [esp+0x38]->slot4. See verification/BUG-005.md. Stays here until the fix is written and verified.
  *
  *   BUG-011 (Object.GetInfiniteAmmo absent)
  *     The read primitive is identified — `FUN_00520EF0(esi = 0x00DF9B10, eax = object)`, the same

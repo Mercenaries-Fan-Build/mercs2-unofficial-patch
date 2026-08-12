@@ -41,15 +41,11 @@
  *   below was taken from its `Player` binding-table slot, which is the only pointer to it in the
  *   image.
  *
- * ⚠⚠ THIS FIX MAY BE INERT, AND THAT IS NOT YET RESOLVED.
- *   The autosave has a SECOND gate at +0x25F, ANDed with the dirty byte. Its only writer anywhere in
- *   the image is a profile clear/init (FUN_00635720) that sets it to ZERO. If nothing sets it
- *   non-zero at runtime — plausibly a bulk read of the profile struct at load, which a static scan
- *   cannot see — then dirtying +0x11 will not make the autosave fire and this fix does nothing.
- *
- *   That question cannot be closed statically: the save path runs through a SecuROM thunk. So this
- *   module LOGS the observed value of +0x25F the first time it dirties, which answers it from a
- *   single play session. See verification/BUG-004.md.
+ * ⚠ SECOND GATE at +0x25F, ANDed with the dirty byte, gates the same save. Whether it is ever
+ *   non-zero at runtime — i.e. whether dirtying +0x11 does anything — could not be settled statically
+ *   (the save path runs through a SecuROM thunk), so MarkDirty logs it once. Observed = 1: gate open,
+ *   fix effective. The log stays as a per-build check (= 0 means inert on that build).
+ *   See verification/BUG-004.md.
  */
 #include "../src/fixpack.h"
 
