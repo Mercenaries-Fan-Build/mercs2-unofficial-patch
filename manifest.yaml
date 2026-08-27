@@ -17,7 +17,7 @@ format: 1
 
 shipment:
   name: mercs2-unofficial-patch
-  version: 0.1.1
+  version: 0.2.1
   target: retail
   authors: [Mercenaries Fan Build]
   description: >-
