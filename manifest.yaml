@@ -1,18 +1,5 @@
-# Mercenaries 2 Unofficial Patch — one Shipment, every confirmed fix.
-#
-# The backlog this ships against is the bug register. Each contribution below names the BUG-NNN it
-# closes, and each Lua append carries the full "what the player sees / why / the fix" note in its own
-# file — so a reader can go from a symptom to the exact code without leaving the repo.
-#
-# Layers:
-#   T2 (Lua)  — `patch_lua` appends, in this WAD.
-#   T3 (code) — runtime detours in one `.asi`; see native/. Added as a `native_hook` when built.
-#   T1 (text) — ships SEPARATELY as `English-patch.wad`. Not expressible here: the engine mounts
-#               `<stem>-patch.wad` per base WAD, so one file cannot occupy both the vz and the
-#               English slot — and the English slot is the one that wins in BOTH the front end and
-#               gameplay.
-#
-# Build:  qm build . --out build --corpus <workshop_data/lua>
+# Mercenaries 2 Unofficial Patch. Each contribution names the BUG-NNN it closes; see verification/
+# and README.md. Build: qm build . --out build --corpus <workshop_data/lua>
 format: 1
 
 shipment:
@@ -25,15 +12,15 @@ shipment:
     specific code in the decompiled corpus and the retail executable.
   license: MIT
 
+load:
+  # ⚠ m2-sdk is a load-time import: without it the plugin fails to load (0x8007007E) before any code runs.
+  requires:
+    - name: m2-sdk
+      version: "^0.1"
+
 contributions:
-  # ── BUG-001 / BUG-003 — the toolbox counter inflates on reload ──────────────────────────────────
-  #
-  # These two are ONE fix in two files, because the defects are in two different scripts. BUG-003
-  # makes a dead de-duplication pass live, which produces MORE of the spurious deaths BUG-001 guards
-  # against — so shipping either alone is worse than shipping neither.
-  #
-  # ⚠ Both targets are `resident` scripts, not `vz`. That needed `qm` to learn the resident block
-  # first: `patch_lua` reached only `scripts_vz` before this fix pack.
+  # BUG-001 / BUG-003 — the toolbox counter inflates on reload. One fix in two scripts; BUG-003 makes
+  # a dead pass live and must ship with BUG-001. ⚠ Both targets are `resident` scripts (qm >= v0.11.0).
   - kind: patch_lua
     target: mrxtaskobjectivedestroy
     append: src/lua/bug_001_toolbox_recount.lua
@@ -42,38 +29,16 @@ contributions:
     target: mrxtaskjobcollecttype
     append: src/lua/bug_003_collecttype_loadassets.lua
 
-  # ── BUG-006 — the hero-swap save/restore hands back more than it was given ──────────────────────
-  #
-  # Pure T2 after all. The register filed this as possibly needing an exe patch because no shipped
-  # script calls a clip-ammo binding — but the binding exists: `Weapon.GetClipAmmo` (0x005EA5F0) and
-  # `SetClipAmmo` (0x005EA520) are real cfuncs in the retail `Weapon` table (9 entries @ 0x00B98860).
-  # Nothing in the game ever called them.
-  #
-  # Carries a second, adjacent fix in the same file: `SaveSingleton` saved `GetMaxHealth` rather than
-  # `GetHealth`, so a swap was also a free full heal. Same function, and an append can only redefine
-  # it once — so the two cannot be separated into two files without one silently erasing the other.
+  # BUG-006 — the hero-swap save/restore hands back a full magazine and full health. Pure T2; carries
+  # a second adjacent fix in the same file (see the source header and verification/BUG-006.md).
   - kind: patch_lua
     target: mrxplayer
     append: src/lua/bug_006_heroswap_save_restore.lua
 
-  # ── T3 — the runtime detours ────────────────────────────────────────────────────────────────────
-  #
-  # One .asi, one source file per bug, built from native/ against the shared m2 SDK (a submodule).
-  # `qm` does not compile native code, so build it first:
-  #
-  #     git submodule update --init --recursive
-  #     make -C sdk build && make -C native
-  #
-  # ⚠ These are runtime detours, never byte patches to the shipped exe. `.rdata` registration-table
-  # writes trip SecuROM anti-tamper — a slot patch crashed early init — so everything goes through
-  # `.text` MinHook, which the cracked build tolerates.
-  #
-  # ⚠ m2-sdk.dll must be installed alongside. It is a LOAD-TIME import: without it the plugin does
-  # not load at all and cannot say why (0x8007007E, before any of its code runs).
-  #
-  # `touches` lists every hooked address. All ten were taken from their Lua binding-table slots and
-  # re-verified against the target build — the register cites addresses INSIDE these bodies, which
-  # are not hookable.
+  # T3 — runtime detours in one .asi, one source file per bug (native/). Build it first: qm does not
+  # compile native code — `git submodule update --init --recursive && make -C sdk build && make -C native`.
+  # `touches` lists every hooked address, taken from the Lua binding-table slots (the register cites
+  # addresses inside the bodies, which are not hookable). CI checks each appears in native/src.
   - kind: native_hook
     target: retail
     plugin: src/unofficial_patch.asi
@@ -93,8 +58,7 @@ contributions:
       # BUG-009 — Pg.UnloadLayer NULL-derefs on a co-op client
       - "0x005D4E40"   # Pg.UnloadLayer
 
-  # The per-fix switches the .asi reads at startup. Ships beside the plugin, because a fix that
-  # cannot be turned off without a rebuild is a fix nobody can bisect when something breaks.
+  # Per-fix switches the .asi reads at startup; ships beside the plugin.
   - kind: place_file
     file: src/unofficial_patch.ini
     dest: scripts

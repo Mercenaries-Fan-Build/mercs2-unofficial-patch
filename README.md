@@ -21,8 +21,6 @@ after, and what would count as the fix overreaching.
 
 ## What it deliberately does *not* fix
 
-This matters as much as the list above.
-
 - **BUG-005** (weapons lost on a loadout restore) and **BUG-011** (the DLC infinite-ammo toggle is a
   no-op) are real and confirmed — and neither has a fix derivable from static evidence. Each is
   blocked on one named observation, recorded in [`native/src/fixpack.h`](native/src/fixpack.h). A
