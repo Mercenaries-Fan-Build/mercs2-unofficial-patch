@@ -5,23 +5,7 @@ on:
   pull_request:
   workflow_dispatch:
 
-# The version of `qm` this Shipment is checked against. Bump it to pick up new rules.
-#
-# There is no digest to bump alongside it: the expected sha256 is read from GitHub's own record of
-# the release asset, which is the same thing you would be copying by hand — so pinning it here would
-# add a second place to get out of date without adding any assurance.
-#
-# ⚠ v0.11.0 is the FLOOR, and both halves of that matter:
-#
-#   - `place_file` places the plugin's .ini. An older `qm` cannot even PARSE the manifest
-#     ("unknown variant `place_file`") — a LINT failure, not a build one. (Landed in v0.10.3.)
-#   - reaching the `resident` scripts block. Every Lua target here is a resident module. v0.10.3
-#     LINTS this Shipment fine — lint is hermetic and resolves no script — but `qm build` on it
-#     fails with "not in this scripts block".
-#
-# So pinning to something that merely lints would keep CI green while the build stayed broken for
-# anyone who tried it. v0.11.0 is the first release that does both; verified by building this
-# Shipment with the released binary, resident links and all.
+# ⚠ v0.11.0 floor: older qm cannot parse `place_file` (lint failure) or build the `resident` block.
 env:
   QM_VERSION: v0.11.0
 
@@ -29,13 +13,10 @@ jobs:
   lint:
     runs-on: ubuntu-latest
     steps:
-      # `submodules: recursive` is required: the plugin links against the m2 SDK, which lives in
-      # sdk/. Without it the build below fails on a missing header rather than on anything real.
       - uses: actions/checkout@v4
         with:
-          submodules: recursive
+          submodules: recursive   # the plugin links against the m2 SDK in sdk/
 
-      # `qm` ships as a prebuilt binary, so nothing here needs a Rust toolchain.
       - name: Install qm
         env:
           GH_TOKEN: ${{ github.token }}
@@ -44,9 +25,7 @@ jobs:
           repo=Mercenaries-Fan-Build/mercs2-wad-simulator
           asset=qm-linux-x86_64
 
-          # GitHub records a sha256 for every release asset. Read it BEFORE downloading, so the
-          # check is against what the release claims to hold rather than against the bytes that
-          # happened to arrive.
+          # Read the release's recorded sha256 before downloading, then verify the bytes against it.
           want=$(gh api "repos/$repo/releases/tags/$QM_VERSION" \
             --jq ".assets[] | select(.name == \"$asset\") | .digest")
           if [ -z "$want" ]; then
@@ -64,16 +43,8 @@ jobs:
           echo "qm $QM_VERSION verified: $got"
           chmod +x qm
 
-      # ★ The plugin has to be BUILT before qm can lint the manifest that references it.
-      #
-      # `unofficial_patch.asi` is a build artifact and is gitignored — committing a binary is how a
-      # consumer ends up shipping a stale one. So `native_hook`'s `plugin:` path does not exist in a
-      # fresh checkout, and qm reports M0110 (the file does not exist) as an ERROR, which is correct
-      # of it.
-      #
-      # Building here is not a workaround; it is the coverage we were missing. Every push now proves
-      # the SDK compiles for the 32-bit target, the plugin compiles against it, and the result really
-      # imports m2-sdk.dll rather than having silently linked its own copy.
+      # The plugin (a gitignored artifact) must be built before qm can lint the manifest that
+      # references it, and building here also proves the SDK + plugin compile for the 32-bit target.
       - name: Install the 32-bit MinGW cross-compiler
         run: sudo apt-get update && sudo apt-get install -y gcc-mingw-w64-i686
 
@@ -83,19 +54,11 @@ jobs:
           make -C sdk build
           make -C native verify
 
-      # Hermetic: no game install, no retail WADs, no network beyond fetching qm. That is what lets
-      # this run on a public runner at all — the rules needing the game are a separate set that runs
-      # during `qm build`.
-      #
-      # Gated on the EXIT CODE, not on what gets printed.
-      #
-      # M0141 warnings are EXPECTED here: these scripts are not on qm's mergeable allow-list, so the
-      # Shipment claims them exclusively rather than risking two mods silently erasing each other's
-      # Lua. That is the correct outcome for a fix pack, and warnings do not fail the build.
+      # Hermetic: no game, no WADs. ⚠ M0141 warnings are expected (these scripts are claimed
+      # exclusively, not mergeable) and do not fail the build.
       - name: Lint this Shipment
         run: ./qm lint .
 
-      # A manifest pointing at a path someone renamed should not survive to a release.
       - name: The manifest's declared sources exist
         run: |
           set -euo pipefail
@@ -106,12 +69,8 @@ jobs:
             || { echo "::error::manifest no longer points at src/unofficial_patch.asi"; exit 1; }
           echo "manifest sources present"
 
-      # Every address the manifest CLAIMS must exist in the plugin source. Without this the `touches`
-      # list rots silently — and it is what the conflict system uses to notice two plugins hooking
-      # one address, so a stale entry is worse than no entry.
-      #
-      # One-directional on purpose: the source also defines data addresses it only READS (singletons
-      # like the profile and gui pointers), and those are not hook claims.
+      # Every manifest `touches` address must exist in the plugin source. One-directional: the source
+      # also reads data addresses (singletons) that are not hook claims.
       - name: Every declared hook address exists in the source
         run: |
           set -euo pipefail
