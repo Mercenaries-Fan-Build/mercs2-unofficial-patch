@@ -34,7 +34,8 @@ after, and what would count as the fix overreaching.
 
 ## Install
 
-Grab `qm` from the [tools release page][releases], then:
+Grab `qm` 3.x (Workshop Tools v0.15.0 or later) from the [tools release page][releases]; this
+manifest is format 2, and older `qm` refuses it. Then:
 
 ```sh
 git submodule update --init --recursive
@@ -50,7 +51,7 @@ Four files go to the game, and **all four are required**:
 | `build/mercs2-unofficial-patch.wad` | `<game>/data/vz-patch.wad` |
 | `build/unofficial_patch.asi` | `<game>/scripts/` |
 | `build/unofficial_patch.ini` | `<game>/scripts/` |
-| `m2-sdk.dll` ([release][sdk]) | `<game>/scripts/` |
+| `m2-sdk.dll`, from the m2-sdk Shipment 0.2.x ([release][sdk]) | `<game>/` (the game root) |
 
 Full detail, and how to confirm the hooks actually armed, in
 [`verification/README.md`](verification/README.md).
@@ -59,7 +60,11 @@ Full detail, and how to confirm the hooks actually armed, in
 > base WAD, so any other mod in that slot is replaced, not merged with.
 
 > ⚠ `m2-sdk.dll` is a **load-time import**. Without it the plugin does not load at all and cannot
-> report why — `LoadLibrary` fails before any of its code runs.
+> report why — `LoadLibrary` fails before any of its code runs. It is provided by the m2-sdk
+> Shipment, which this one requires (`^0.2`).
+
+**Upgrading from 0.2.1:** 0.3.0 needs a Modkit that reads manifest format 2, and a leftover
+`scripts/m2-sdk.dll` from the old manual steps is no longer used.
 
 Every fix can be switched off individually in `unofficial_patch.ini`, without a rebuild. That is what
 makes "which fix broke it" answerable when a pack misbehaves on a machine none of us has.
