@@ -13,6 +13,11 @@ on:
 permissions:
   contents: write
 
+# Same pin as lint.yml. v0.15.0 is the first Workshop Tools release carrying qm 3.0.0, which reads
+# manifest format 2 only.
+env:
+  QM_VERSION: v0.15.0
+
 jobs:
   stamp-and-release:
     if: github.event_name == 'workflow_dispatch'
@@ -55,6 +60,36 @@ jobs:
           set -euo pipefail
           make -C sdk build
           make -C native verify
+
+      - name: Install qm
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          repo=Mercenaries-Fan-Build/mercs2-wad-simulator
+          asset=qm-linux-x86_64
+
+          # Read the release's recorded sha256 before downloading, then verify the bytes against it.
+          want=$(gh api "repos/$repo/releases/tags/$QM_VERSION" \
+            --jq ".assets[] | select(.name == \"$asset\") | .digest")
+          if [ -z "$want" ]; then
+            echo "::error::$asset is not in $QM_VERSION — check the version pin in this workflow"
+            exit 1
+          fi
+          want=${want#sha256:}
+
+          gh release download "$QM_VERSION" --repo "$repo" --pattern "$asset" --output qm
+          got=$(sha256sum qm | cut -d' ' -f1)
+          if [ "$want" != "$got" ]; then
+            echo "::error::$asset failed verification — expected $want, got $got"
+            exit 1
+          fi
+          echo "qm $QM_VERSION verified: $got"
+          chmod +x qm
+
+      # The Shipment must lint clean before it is packaged; lint reads the built plugin.
+      - name: Lint this Shipment
+        run: ./qm lint .
 
       - name: Package the shipment source tree (with the built plugin)
         id: pkg
@@ -117,6 +152,36 @@ jobs:
           set -euo pipefail
           make -C sdk build
           make -C native verify
+
+      - name: Install qm
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          repo=Mercenaries-Fan-Build/mercs2-wad-simulator
+          asset=qm-linux-x86_64
+
+          # Read the release's recorded sha256 before downloading, then verify the bytes against it.
+          want=$(gh api "repos/$repo/releases/tags/$QM_VERSION" \
+            --jq ".assets[] | select(.name == \"$asset\") | .digest")
+          if [ -z "$want" ]; then
+            echo "::error::$asset is not in $QM_VERSION — check the version pin in this workflow"
+            exit 1
+          fi
+          want=${want#sha256:}
+
+          gh release download "$QM_VERSION" --repo "$repo" --pattern "$asset" --output qm
+          got=$(sha256sum qm | cut -d' ' -f1)
+          if [ "$want" != "$got" ]; then
+            echo "::error::$asset failed verification — expected $want, got $got"
+            exit 1
+          fi
+          echo "qm $QM_VERSION verified: $got"
+          chmod +x qm
+
+      # The Shipment must lint clean before it is packaged; lint reads the built plugin.
+      - name: Lint this Shipment
+        run: ./qm lint .
 
       - name: Package the shipment source tree (with the built plugin)
         id: pkg
