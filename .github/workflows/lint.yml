@@ -5,9 +5,9 @@ on:
   pull_request:
   workflow_dispatch:
 
-# ⚠ v0.11.0 floor: older qm cannot parse `place_file` (lint failure) or build the `resident` block.
+# v0.15.0 is the first Workshop Tools release carrying qm 3.0.0, which reads manifest format 2 only.
 env:
-  QM_VERSION: v0.11.0
+  QM_VERSION: v0.15.0
 
 jobs:
   lint:
@@ -54,10 +54,18 @@ jobs:
           make -C sdk build
           make -C native verify
 
-      # Hermetic: no game, no WADs. ⚠ M0141 warnings are expected (these scripts are claimed
-      # exclusively, not mergeable) and do not fail the build.
+      # Hermetic: no game, no WADs. The report carries the manifest as qm read it, for the checks below.
       - name: Lint this Shipment
-        run: ./qm lint .
+        run: ./qm lint . --report "$RUNNER_TEMP/lint-report.json"
+
+      - name: Every hook is declared by name and by VA
+        run: |
+          set -euo pipefail
+          jq -e '[.manifest.contributions[] | select(.kind == "native_hook") | .touches]
+            | all(. as $t | ($t | length) > 0 and ($t | length) % 2 == 0
+              and ([range(0; $t | length; 2) | $t[.]] | all(test("^[A-Za-z_][A-Za-z0-9_]*\\.[A-Za-z_][A-Za-z0-9_]*$")))
+              and ([range(1; $t | length; 2) | $t[.]] | all(test("^0x[0-9A-F]{8}$"))))' "$RUNNER_TEMP/lint-report.json" \
+            || { echo "::error::each native_hook touch must be a Table.Function name followed by its 0xVVVVVVVV"; exit 1; }
 
       - name: The manifest's declared sources exist
         run: |
