@@ -40,8 +40,8 @@ Three files, and **all three are required**:
 | `build/unofficial_patch.asi` | `<game>/scripts/` | the T3 detours |
 | `build/unofficial_patch.ini` | `<game>/scripts/` | per-fix switches |
 
-plus **`m2-sdk.dll`** from the [mercs2-sdk release](https://github.com/Mercenaries-Fan-Build/mercs2-sdk/releases),
-next to the `.asi`.
+plus **`m2-sdk.dll`** from the m2-sdk Shipment 0.2.x ([mercs2-sdk release](https://github.com/Mercenaries-Fan-Build/mercs2-sdk/releases)),
+in the game root (`<game>/`).
 
 > ⚠ `m2-sdk.dll` is a **load-time import**. Without it the plugin does not load at all and *cannot
 > report why* — `LoadLibrary` fails with `0x8007007E` before any of its code runs. pmc_bb logs only
@@ -55,7 +55,7 @@ next to the `.asi`.
 `scripts/unofficial_patch.log`, written next to the `.asi`:
 
 ```
-Mercenaries 2 unofficial patch, m2 0.1.0
+Mercenaries 2 unofficial patch, m2 0.2.0
 BUG-004  armed   — profile changes to cash/fuel-capacity/character/costume are not autosaved
 BUG-007  armed   — three PDA blip binders crash on a stale or out-of-range blip id
 BUG-008  armed   — Gui.ShowLoadingHints(false) never turns loading hints off
