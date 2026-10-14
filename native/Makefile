@@ -5,11 +5,24 @@
 #   Ubuntu:  apt install gcc-mingw-w64-i686
 #   Windows: MSYS2 + mingw-w64-i686-gcc
 #
-# The SDK is a submodule. From a fresh clone:
-#   git submodule update --init --recursive
-#   make -C ../sdk build        # produces m2-sdk.dll + the import library this links against
+# The SDK is fetched from the pinned github.com/Mercenaries-Fan-Build/mercs2-sdk release — NOT a
+# submodule. From a fresh clone:
+#   ../scripts/fetch-sdk.sh      # downloads the pinned m2-sdk release into ../.sdk/<ver>/
+#   make                         # builds unofficial_patch.asi, linking the released import lib
+#
+# `make` will auto-run the fetch when ../.sdk/<ver>/sdk.mk is missing (via the rule below).
 
-include ../sdk/sdk.mk
+# Pin lives in scripts/fetch-sdk.sh; `sdk-pin` prints the version to stdout.
+SDK_VERSION := $(shell awk -F'"' '/^SDK_VERSION=/ {print $$2}' ../scripts/fetch-sdk.sh)
+SDK_DIR     := ../.sdk/$(SDK_VERSION)
+SDK_MK      := $(SDK_DIR)/sdk.mk
+
+# `-include` is silent on a missing file. The pattern rule below creates it by invoking the fetch
+# script, and GNU make will then re-read the generated adapter automatically.
+-include $(SDK_MK)
+
+$(SDK_MK):
+	cd .. && scripts/fetch-sdk.sh
 
 CC_MINGW = i686-w64-mingw32-gcc
 TARGET   = ../src/unofficial_patch.asi
@@ -26,9 +39,10 @@ $(TARGET): $(SRCS) $(M2_IMPLIB)
 	$(CC_MINGW) $(CFLAGS) -o $@ $(SRCS) $(LDFLAGS)
 	@echo "built $(TARGET) ($$(wc -c < $(TARGET) | tr -d ' ') bytes)"
 
-# The SDK is not built by this Makefile — say so by name rather than failing inside ld.
+# The SDK is not built by this Makefile — if the import lib is missing even after `fetch-sdk.sh`
+# ran, say so by name rather than failing inside ld.
 $(M2_IMPLIB):
-	@echo "error: $(M2_IMPLIB) not found — run 'make -C ../sdk build' first" >&2
+	@echo "error: $(M2_IMPLIB) not found — run '../scripts/fetch-sdk.sh' manually" >&2
 	@exit 1
 
 # Compiling proves the headers agree. Only the import table proves this .asi will bind to the shared
@@ -44,5 +58,5 @@ clean:
 	rm -f $(TARGET)
 
 help:
-	@echo "make        — build $(TARGET)"
+	@echo "make        — build $(TARGET) (fetches the pinned SDK release if needed)"
 	@echo "make verify — assert it is a 32-bit PE that imports m2-sdk.dll"
