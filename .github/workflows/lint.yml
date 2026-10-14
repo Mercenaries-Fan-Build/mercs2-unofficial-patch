@@ -14,8 +14,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          submodules: recursive   # the plugin links against the m2 SDK in sdk/
 
       - name: Install qm
         env:
@@ -48,10 +46,10 @@ jobs:
       - name: Install the 32-bit MinGW cross-compiler
         run: sudo apt-get update && sudo apt-get install -y gcc-mingw-w64-i686
 
-      - name: Build the m2 SDK and the plugin
+      - name: Fetch the pinned m2-sdk release and build the plugin
         run: |
           set -euo pipefail
-          make -C sdk build
+          scripts/fetch-sdk.sh
           make -C native verify
 
       # Hermetic: no game, no WADs. The report carries the manifest as qm read it, for the checks below.
