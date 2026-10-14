@@ -35,7 +35,8 @@ contributions:
     append: src/lua/bug_006_heroswap_save_restore.lua
 
   # T3 — runtime detours in one .asi, one source file per bug (native/). Build it first: qm does not
-  # compile native code — `git submodule update --init --recursive && make -C sdk build && make -C native`.
+  # compile native code — `scripts/fetch-sdk.sh && make -C native` (the fetch pulls the pinned
+  # m2-sdk release into .sdk/<version>/; `make -C native` auto-runs the fetch if it is missing).
   # `touches` declares each hook twice: by the Lua binding it replaces (`Table.Function`), and by that
   # cfunc's VA in the one EXE build the plugin arms on (fixpack.h). The VAs are the binding-table slots
   # (the register cites addresses inside the bodies, which are not hookable). CI checks each VA
