@@ -27,7 +27,6 @@ jobs:
         with:
           ref: ${{ github.event.repository.default_branch }}
           fetch-depth: 0
-          submodules: recursive   # the plugin links against the m2 SDK in sdk/
 
       - name: Normalise and validate the version
         id: v
@@ -55,10 +54,10 @@ jobs:
       - name: Install the 32-bit MinGW cross-compiler
         run: sudo apt-get update && sudo apt-get install -y gcc-mingw-w64-i686
 
-      - name: Build the m2 SDK and the plugin
+      - name: Fetch the pinned m2-sdk release and build the plugin
         run: |
           set -euo pipefail
-          make -C sdk build
+          scripts/fetch-sdk.sh
           make -C native verify
 
       - name: Install qm
@@ -97,7 +96,7 @@ jobs:
           set -euo pipefail
           ASSET="mercs2-unofficial-patch-v${{ steps.v.outputs.version }}.zip"
           test -f src/unofficial_patch.asi || { echo "::error::plugin not built — refusing to package"; exit 1; }
-          zip -r "$ASSET" manifest.yaml src native verification README.md LICENSE -x 'build/*' '*/build/*'
+          zip -r "$ASSET" manifest.yaml src native scripts verification README.md LICENSE -x 'build/*' '*/build/*' '.sdk/*'
           unzip -l "$ASSET" | grep -q 'src/unofficial_patch.asi' || { echo "::error::asset is missing the plugin"; exit 1; }
           echo "asset=$ASSET" >> "$GITHUB_OUTPUT"
 
@@ -128,8 +127,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          submodules: recursive
 
       - name: manifest.yaml version must equal the tag
         id: v
@@ -147,10 +144,10 @@ jobs:
       - name: Install the 32-bit MinGW cross-compiler
         run: sudo apt-get update && sudo apt-get install -y gcc-mingw-w64-i686
 
-      - name: Build the m2 SDK and the plugin
+      - name: Fetch the pinned m2-sdk release and build the plugin
         run: |
           set -euo pipefail
-          make -C sdk build
+          scripts/fetch-sdk.sh
           make -C native verify
 
       - name: Install qm
@@ -189,7 +186,7 @@ jobs:
           set -euo pipefail
           ASSET="mercs2-unofficial-patch-v${{ steps.v.outputs.version }}.zip"
           test -f src/unofficial_patch.asi || { echo "::error::plugin not built — refusing to package"; exit 1; }
-          zip -r "$ASSET" manifest.yaml src native verification README.md LICENSE -x 'build/*' '*/build/*'
+          zip -r "$ASSET" manifest.yaml src native scripts verification README.md LICENSE -x 'build/*' '*/build/*' '.sdk/*'
           unzip -l "$ASSET" | grep -q 'src/unofficial_patch.asi' || { echo "::error::asset is missing the plugin"; exit 1; }
           echo "asset=$ASSET" >> "$GITHUB_OUTPUT"
 
