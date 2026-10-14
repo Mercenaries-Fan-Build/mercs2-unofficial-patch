@@ -24,9 +24,8 @@ writable, just not yet built. BUG-011 still needs its runtime registration path.
 ## Build
 
 ```sh
-git submodule update --init --recursive
-make -C sdk build          # m2-sdk.dll + import library
-make -C native             # unofficial_patch.asi
+scripts/fetch-sdk.sh       # pulls the pinned m2-sdk release into .sdk/<version>/
+make -C native             # unofficial_patch.asi (auto-runs fetch-sdk.sh if .sdk is missing)
 qm build . --out build --corpus <workshop_data/lua>
 ```
 
@@ -40,8 +39,9 @@ Three files, and **all three are required**:
 | `build/unofficial_patch.asi` | `<game>/scripts/` | the T3 detours |
 | `build/unofficial_patch.ini` | `<game>/scripts/` | per-fix switches |
 
-plus **`m2-sdk.dll`** from the m2-sdk Shipment 0.2.x ([mercs2-sdk release](https://github.com/Mercenaries-Fan-Build/mercs2-sdk/releases)),
-in the game root (`<game>/`).
+plus **`m2-sdk.dll`** from the pinned m2-sdk release — after `scripts/fetch-sdk.sh` runs, it is at
+`.sdk/<version>/runtime/m2-sdk.dll` (the specific version lives in
+[`scripts/fetch-sdk.sh`](../scripts/fetch-sdk.sh)) — in the game root (`<game>/`).
 
 > ⚠ `m2-sdk.dll` is a **load-time import**. Without it the plugin does not load at all and *cannot
 > report why* — `LoadLibrary` fails with `0x8007007E` before any of its code runs. pmc_bb logs only
