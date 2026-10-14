@@ -38,11 +38,13 @@ Grab `qm` 3.x (Workshop Tools v0.15.0 or later) from the [tools release page][re
 manifest is format 2, and older `qm` refuses it. Then:
 
 ```sh
-git submodule update --init --recursive
-make -C sdk build          # m2-sdk.dll + its import library
-make -C native             # unofficial_patch.asi
+scripts/fetch-sdk.sh       # downloads the pinned m2-sdk release (headers + import lib + m2-sdk.dll) to .sdk/
+make -C native             # builds unofficial_patch.asi against the released SDK
 qm build . --out build --corpus path/to/workshop_data/lua
 ```
+
+`make -C native` will auto-run `scripts/fetch-sdk.sh` if `.sdk/<version>/sdk.mk` is missing, so the
+explicit first line is for people who want to run the fetch independently (CI, air-gapped mirrors).
 
 Four files go to the game, and **all four are required**:
 
@@ -51,7 +53,7 @@ Four files go to the game, and **all four are required**:
 | `build/mercs2-unofficial-patch.wad` | `<game>/data/vz-patch.wad` |
 | `build/unofficial_patch.asi` | `<game>/scripts/` |
 | `build/unofficial_patch.ini` | `<game>/scripts/` |
-| `m2-sdk.dll`, from the m2-sdk Shipment 0.2.x ([release][sdk]) | `<game>/` (the game root) |
+| `m2-sdk.dll` from `.sdk/<version>/runtime/`, i.e. the m2-sdk Shipment ([release][sdk]) | `<game>/` (the game root) |
 
 Full detail, and how to confirm the hooks actually armed, in
 [`verification/README.md`](verification/README.md).
@@ -60,11 +62,14 @@ Full detail, and how to confirm the hooks actually armed, in
 > base WAD, so any other mod in that slot is replaced, not merged with.
 
 > ⚠ `m2-sdk.dll` is a **load-time import**. Without it the plugin does not load at all and cannot
-> report why — `LoadLibrary` fails before any of its code runs. It is provided by the m2-sdk
-> Shipment, which this one requires (`^0.2`).
+> report why — `LoadLibrary` fails before any of its code runs. The SDK pin lives in
+> [`scripts/fetch-sdk.sh`](scripts/fetch-sdk.sh) (version + sha256 per asset); bump the pin to move
+> to a newer SDK, and `make` will re-fetch on the next build.
 
 **Upgrading from 0.2.1:** 0.3.0 needs a Modkit that reads manifest format 2, and a leftover
-`scripts/m2-sdk.dll` from the old manual steps is no longer used.
+`scripts/m2-sdk.dll` from the old manual steps is no longer used. **Upgrading from 0.3.x:** the
+SDK is no longer a git submodule — if you have an old `sdk/` directory from a prior clone, delete
+it; the new flow is `scripts/fetch-sdk.sh` which pulls the pinned release into `.sdk/`.
 
 Every fix can be switched off individually in `unofficial_patch.ini`, without a rebuild. That is what
 makes "which fix broke it" answerable when a pack misbehaves on a machine none of us has.
@@ -75,7 +80,8 @@ makes "which fix broke it" answerable when a pack misbehaves on a machine none o
 manifest.yaml     what this Shipment contributes
 src/lua/          one Lua append per bug, appended to a game script
 native/src/       one C file per bug, compiled into one .asi
-sdk/              the shared m2 layer (submodule)
+scripts/          build-side helpers (fetch-sdk.sh pins + downloads the m2-sdk release)
+.sdk/             fetched m2-sdk release — gitignored; populated by scripts/fetch-sdk.sh
 verification/     how to reproduce each bug, and what the fix must not break
 ```
 
