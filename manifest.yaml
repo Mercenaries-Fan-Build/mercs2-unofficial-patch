@@ -15,7 +15,7 @@ shipment:
 load:
   # ⚠ m2-sdk is a load-time import: without it the plugin fails to load (0x8007007E) before any code runs.
   requires:
-    - { shipment: m2-sdk, version: "^0.2" }
+    - { shipment: m2-sdk, version: "^0.4" }
 
 contributions:
   # BUG-001 / BUG-003 — the toolbox counter inflates on reload. One fix in two scripts; BUG-003 makes
