@@ -65,19 +65,6 @@ contributions:
       # BUG-009 — Pg.UnloadLayer NULL-derefs on a co-op client
       - Pg.UnloadLayer
       - "0x005D4E30"
-      # PROBE-001 — console-parity diagnostic probe. These are internal engine functions, not Lua
-      # bindings — the first half of each pair is a `probe:` label so CI's "VA appears in src"
-      # check still runs over the second half. See verification/PROBE-001.md.
-      - "probe:weaponfx_ctor"
-      - "0x0066F250"
-      - "probe:render_vmethod"
-      - "0x00666190"
-      - "probe:beam_effect_ctor"
-      - "0x00494EA0"
-      - "probe:set_state"
-      - "0x004D3FA0"
-      - Pg.Spawn
-      - "0x005D5D10"
       # FEATURE-003 — winch magnet chain visual (seed form). Owns both the Havok-chain hook and
       # the AttachCargoToWinch Lua cfunc so the probe can be disabled independently without
       # losing winch telemetry. See verification/FEATURE-003.md.
