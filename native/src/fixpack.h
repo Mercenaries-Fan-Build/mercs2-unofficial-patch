@@ -45,8 +45,7 @@ int bug_008_install(void);   /* Gui.ShowLoadingHints(false) is a one-way switch 
 int bug_009_install(void);   /* Pg.UnloadLayer NULL-derefs on a co-op client */
 
 /* Console-parity work. Not bug fixes — these restore PS3/Xbox behaviour that PC never shipped.
- * See verification/PROBE-001.md and verification/FEATURE-003.md / verification/FEATURE-004.md. */
-int probe_001_install(void);  /* console-parity diagnostic probe — logs only, no behaviour change */
+ * See verification/FEATURE-003.md / verification/FEATURE-004.md. */
 int feature_003_install(void);/* winch magnet chain visual (seed form; mesh-attach pending probe) */
 int feature_004_install(void);/* mesh-emitter fire visuals (hidden-node flag + volume fallback + AREA build) */
 
