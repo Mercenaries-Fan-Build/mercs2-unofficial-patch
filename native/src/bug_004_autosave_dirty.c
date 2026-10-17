@@ -2,13 +2,12 @@
  * See verification/BUG-004.md. */
 #include "../src/fixpack.h"
 
-#define VA_PROFILE_SINGLETON 0x01176054u   /* void** */
-
-#define VA_SET_CASH              0x005DF480u
-#define VA_SET_FUEL_CAPACITY     0x005DF720u
-#define VA_SET_PROFILE_CHARACTER 0x005DF7D0u
-#define VA_SET_PROFILE_COSTUME   0x005DF920u
-#define VA_SET_AVAILABLE_COSTUMES 0x005DFB40u
+#define VA_PROFILE_SINGLETON       0x01175054u
+#define VA_SET_CASH                0x005DF470u
+#define VA_SET_FUEL_CAPACITY       0x005DF710u
+#define VA_SET_PROFILE_CHARACTER   0x005DF7C0u
+#define VA_SET_PROFILE_COSTUME     0x005DF910u
+#define VA_SET_AVAILABLE_COSTUMES  0x005DFB30u
 
 #define PROF_OFF_DIRTY             0x11
 #define PROF_OFF_CASH              0x2C
@@ -74,6 +73,10 @@ DEFINE_BYTE_SETTER_HOOK(Hook_SetAvailableCostumes, g_orig_costume_roster,
                         PROF_OFF_AVAILABLE_COSTUMES)
 
 int bug_004_install(void) {
+    if (fixpack_build() != FIXPACK_BUILD_V11) {
+        m2_logf("BUG-004  skipped (v11-only)");
+        return FIXPACK_SKIPPED;
+    }
     /* All five or none — a partial install leaves some edits saving and others not. */
     if (!m2_hook_attach((void*)VA_SET_CASH, (void*)Hook_SetCash, (void**)&g_orig_cash))
         return 0;
