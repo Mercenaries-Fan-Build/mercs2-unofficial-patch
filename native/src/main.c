@@ -3,69 +3,88 @@
 
 #include <string.h>
 
-/* BUG-005 and BUG-011 are absent by design — see the note in fixpack.h. */
+/* BUG-005, BUG-007 and BUG-011 are absent by design — see the note in fixpack.h. */
 static FixpackModule g_modules[] = {
     { "BUG-004", "profile changes to cash/fuel-capacity/character/costume are not autosaved",
       bug_004_install, 1 },
-    { "BUG-007", "three PDA blip binders crash on a stale or out-of-range blip id",
-      bug_007_install, 1 },
     { "BUG-008", "Gui.ShowLoadingHints(false) never turns loading hints off",
       bug_008_install, 1 },
     { "BUG-009", "Pg.UnloadLayer crashes a co-op client with no current game state",
       bug_009_install, 1 },
+    /* Console-parity work: both ship DISABLED by default. The probe is a measurement tool, not
+     * a fix, and we don't want its log file growing on every player's machine when they are not
+     * actively helping run captures. feature_003 is a seed that logs today and will attach a
+     * mesh in a later iteration — same reason. See src/unofficial_patch.ini. */
+    { "PROBE-001", "console-parity diagnostic probe (logs engine events, no behaviour change)",
+      probe_001_install, 0 },
+    { "FEATURE-003", "winch magnet chain visual (seed form; logs Havok-chain builds)",
+      feature_003_install, 0 },
+    { "FEATURE-004", "mesh-emitter fire visuals (canopies, trees, wrecks)",
+      feature_004_install, 0 },
 };
 
 #define MODULE_COUNT ((int)(sizeof(g_modules) / sizeof(g_modules[0])))
 
-/* Only hook the build the addresses were verified against. On any other build MinHook would splice a
- * JMP into whatever lives at that VA — ⚠ the failure mode of a wrong address is corruption, not a
- * no-op — so refuse instead. */
-int fixpack_target_is_supported(void) {
-    HMODULE exe = GetModuleHandleA(NULL);
+/* Build classification. Cached after the first call so every module can query it cheaply.
+ * ⚠ On a build NOT in this table MinHook would splice a JMP into whatever lives at that VA —
+ * the failure mode of a wrong address is CORRUPTION, not a no-op — so we refuse instead. */
+FixpackBuild fixpack_build(void) {
+    static int cached = 0;
+    static FixpackBuild build = FIXPACK_BUILD_UNKNOWN;
+    HMODULE exe;
     IMAGE_DOS_HEADER* dos;
     IMAGE_NT_HEADERS32* nt;
 
-    if (!exe) return 0;
-    dos = (IMAGE_DOS_HEADER*)exe;
-    if (dos->e_magic != IMAGE_DOS_SIGNATURE) return 0;
-    nt = (IMAGE_NT_HEADERS32*)((BYTE*)exe + dos->e_lfanew);
-    if (nt->Signature != IMAGE_NT_SIGNATURE) return 0;
-    if (nt->FileHeader.Machine != IMAGE_FILE_MACHINE_I386) return 0;
+    if (cached) return build;
+    cached = 1;
 
-    /* SizeOfImage is the loaded footprint (53,485,568), not the on-disk size. Checked with the
-     * checksum because SizeOfImage alone is coarse — two builds can share a footprint while .text
-     * differs, and .text is what these addresses point into. */
-    if (nt->OptionalHeader.SizeOfImage != FIXPACK_TARGET_SIZE_OF_IMAGE) {
-        m2_logf("  target check: SizeOfImage %lu, expected %lu",
-                (unsigned long)nt->OptionalHeader.SizeOfImage,
-                (unsigned long)FIXPACK_TARGET_SIZE_OF_IMAGE);
-        return 0;
-    }
-    if (nt->OptionalHeader.CheckSum != FIXPACK_TARGET_CHECKSUM) {
-        m2_logf("  target check: CheckSum 0x%08lX, expected 0x%08lX",
-                (unsigned long)nt->OptionalHeader.CheckSum,
-                (unsigned long)FIXPACK_TARGET_CHECKSUM);
-        return 0;
-    }
+    exe = GetModuleHandleA(NULL);
+    if (!exe) return build;
+    dos = (IMAGE_DOS_HEADER*)exe;
+    if (dos->e_magic != IMAGE_DOS_SIGNATURE) return build;
+    nt = (IMAGE_NT_HEADERS32*)((BYTE*)exe + dos->e_lfanew);
+    if (nt->Signature != IMAGE_NT_SIGNATURE) return build;
+    if (nt->FileHeader.Machine != IMAGE_FILE_MACHINE_I386) return build;
     if (nt->OptionalHeader.ImageBase != FIXPACK_TARGET_IMAGE_BASE) {
         m2_logf("  target check: ImageBase 0x%08lX, expected 0x%08lX",
                 (unsigned long)nt->OptionalHeader.ImageBase,
                 (unsigned long)FIXPACK_TARGET_IMAGE_BASE);
-        return 0;
+        return build;
     }
-    return 1;
+
+    /* SizeOfImage is the loaded footprint, not the on-disk size. Checked WITH the checksum
+     * because SizeOfImage alone is coarse — two builds can share a footprint while .text
+     * differs, and .text is what these addresses point into. */
+    if (nt->OptionalHeader.SizeOfImage == FIXPACK_V11_SIZE_OF_IMAGE &&
+        nt->OptionalHeader.CheckSum == FIXPACK_V11_CHECKSUM) {
+        build = FIXPACK_BUILD_V11;
+        m2_logf("  target check: v11-patched-securom (SoI 0x%08lX, CS 0x%08lX)",
+                (unsigned long)nt->OptionalHeader.SizeOfImage,
+                (unsigned long)nt->OptionalHeader.CheckSum);
+    } else {
+        m2_logf("  target check: unknown build (SoI 0x%08lX, CS 0x%08lX) — expected v11",
+                (unsigned long)nt->OptionalHeader.SizeOfImage,
+                (unsigned long)nt->OptionalHeader.CheckSum);
+    }
+    return build;
+}
+
+int fixpack_target_is_supported(void) {
+    return fixpack_build() != FIXPACK_BUILD_UNKNOWN;
 }
 
 static void OnIniKey(void* ud, const char* key, const char* value) {
-    int i;
+    int i, j;
     (void)ud;
     for (i = 0; i < MODULE_COUNT; i++) {
-        /* `bug_004 = 0` disables BUG-004. Case-insensitive, underscore form of the register id. */
-        char want[16];
+        /* `bug_004 = 0` disables BUG-004. Case-insensitive, underscore form of the register id.
+         * We rewrite every '-' to '_', not just position 3, so ids of varying length work the
+         * same way: PROBE-001 -> PROBE_001, FEATURE-003 -> FEATURE_003. */
+        char want[24];
         int n = (int)strlen(g_modules[i].id);
         if (n >= (int)sizeof(want)) continue;
         memcpy(want, g_modules[i].id, (size_t)n + 1);
-        want[3] = '_';                       /* "BUG-004" -> "BUG_004" */
+        for (j = 0; j < n; j++) if (want[j] == '-') want[j] = '_';
         if (lstrcmpiA(key, want) == 0) {
             g_modules[i].enabled = m2_ini_bool(value);
             return;
@@ -87,20 +106,24 @@ static DWORD WINAPI Install(LPVOID unused) {
     }
 
     for (i = 0; i < MODULE_COUNT; i++) {
+        int rc;
         if (!g_modules[i].enabled) {
             m2_logf("%s  skipped (disabled in unofficial_patch.ini)", g_modules[i].id);
             continue;
         }
-        if (g_modules[i].install()) {
+        rc = g_modules[i].install();
+        if (rc == FIXPACK_ARMED) {
             m2_logf("%s  armed   — %s", g_modules[i].id, g_modules[i].summary);
             armed++;
+        } else if (rc == FIXPACK_SKIPPED) {
+            /* Module already logged why; count as neither armed nor failed. */
+            continue;
         } else {
             m2_logf("%s  FAILED  — %s", g_modules[i].id, g_modules[i].summary);
             failed++;
         }
     }
-    m2_logf("%d armed, %d failed, %d disabled", armed, failed,
-            MODULE_COUNT - armed - failed);
+    m2_logf("%d armed, %d failed", armed, failed);
     return 0;
 }
 
