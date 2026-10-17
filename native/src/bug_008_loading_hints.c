@@ -3,8 +3,8 @@
  * See verification/BUG-008.md. */
 #include "../src/fixpack.h"
 
-#define VA_SHOW_LOADING_HINTS 0x005B4C30u
-#define VA_GUI_SINGLETON      0x01175FB0u   /* void** */
+#define VA_SHOW_LOADING_HINTS 0x005B4C20u
+#define VA_GUI_SINGLETON      0x01174FB0u
 #define GUI_OFF_HINTS_FLAG    0x39
 
 typedef int(__cdecl* ShowLoadingHintsFn)(void* L);
@@ -28,6 +28,10 @@ static int __cdecl Hook_ShowLoadingHints(void* L) {
 }
 
 int bug_008_install(void) {
+    if (fixpack_build() != FIXPACK_BUILD_V11) {
+        m2_logf("BUG-008  skipped (v11-only)");
+        return FIXPACK_SKIPPED;
+    }
     return m2_hook_attach((void*)VA_SHOW_LOADING_HINTS, (void*)Hook_ShowLoadingHints,
                           (void**)&g_orig);
 }
