@@ -11,12 +11,9 @@ static FixpackModule g_modules[] = {
       bug_008_install, 1 },
     { "BUG-009", "Pg.UnloadLayer crashes a co-op client with no current game state",
       bug_009_install, 1 },
-    /* Console-parity work: both ship DISABLED by default. The probe is a measurement tool, not
-     * a fix, and we don't want its log file growing on every player's machine when they are not
-     * actively helping run captures. feature_003 is a seed that logs today and will attach a
-     * mesh in a later iteration — same reason. See src/unofficial_patch.ini. */
-    { "PROBE-001", "console-parity diagnostic probe (logs engine events, no behaviour change)",
-      probe_001_install, 0 },
+    /* Console-parity work: ships DISABLED by default. feature_003 is a seed that logs today
+     * and will attach a mesh in a later iteration. feature_004 is the mesh-emitter fix for
+     * canopies, trees and wrecks. See src/unofficial_patch.ini. */
     { "FEATURE-003", "winch magnet chain visual (seed form; logs Havok-chain builds)",
       feature_003_install, 0 },
     { "FEATURE-004", "mesh-emitter fire visuals (canopies, trees, wrecks)",
