@@ -28,8 +28,8 @@ CC_MINGW = i686-w64-mingw32-gcc
 TARGET   = ../src/unofficial_patch.asi
 SRCS     = $(wildcard src/*.c)
 
-CFLAGS  = -O2 -Wall -Wextra -shared $(M2_CFLAGS)
-LDFLAGS = $(M2_LDFLAGS) -lkernel32 -luser32
+CFLAGS  = -O2 -Wall -Wextra -shared -DCOBJMACROS $(M2_CFLAGS)
+LDFLAGS = $(M2_LDFLAGS) -lkernel32 -luser32 -ld3d9
 
 .PHONY: all verify clean help
 

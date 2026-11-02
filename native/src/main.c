@@ -11,13 +11,15 @@ static FixpackModule g_modules[] = {
       bug_008_install, 1 },
     { "BUG-009", "Pg.UnloadLayer crashes a co-op client with no current game state",
       bug_009_install, 1 },
-    /* Console-parity work: ships DISABLED by default. feature_003 is a seed that logs today
-     * and will attach a mesh in a later iteration. feature_004 is the mesh-emitter fix for
-     * canopies, trees and wrecks. See src/unofficial_patch.ini. */
+    /* Console-parity work: all default-ON. feature_001 is the visible red laser beam.
+     * feature_003 is a winch-chain seed (logs today; mesh attach in a later iteration).
+     * feature_004 is the mesh-emitter fix for canopies, trees and wrecks. */
+    { "FEATURE-001", "visible red laser beam from the laser designator",
+      feature_001_install, 1 },
     { "FEATURE-003", "winch magnet chain visual (seed form; logs Havok-chain builds)",
-      feature_003_install, 0 },
+      feature_003_install, 1 },
     { "FEATURE-004", "mesh-emitter fire visuals (canopies, trees, wrecks)",
-      feature_004_install, 0 },
+      feature_004_install, 1 },
 };
 
 #define MODULE_COUNT ((int)(sizeof(g_modules) / sizeof(g_modules[0])))

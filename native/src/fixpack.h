@@ -46,6 +46,7 @@ int bug_009_install(void);   /* Pg.UnloadLayer NULL-derefs on a co-op client */
 
 /* Console-parity work. Not bug fixes — these restore PS3/Xbox behaviour that PC never shipped.
  * See verification/FEATURE-003.md / verification/FEATURE-004.md. */
+int feature_001_install(void);/* visible red laser beam (Phase 1 smoke test; D3D9 EndScene hook) */
 int feature_003_install(void);/* winch magnet chain visual (seed form; mesh-attach pending probe) */
 int feature_004_install(void);/* mesh-emitter fire visuals (hidden-node flag + volume fallback + AREA build) */
 
