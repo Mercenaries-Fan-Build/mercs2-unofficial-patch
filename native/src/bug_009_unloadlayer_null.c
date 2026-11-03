@@ -2,9 +2,9 @@
  * See verification/BUG-009.md. */
 #include "../src/fixpack.h"
 
-#define VA_PG_UNLOADLAYER   0x005D4E40u
-#define VA_NET_IS_CLIENT    0x00DFBD77u   /* byte  — non-zero on a co-op client */
-#define VA_CURRENT_STATE    0x01175C7Cu   /* void* — NULL when no game state is current */
+#define VA_PG_UNLOADLAYER 0x005D4E30u
+#define VA_NET_IS_CLIENT  0x00DFAD77u
+#define VA_CURRENT_STATE  0x01174C7Cu
 
 typedef int(__cdecl* PgUnloadLayerFn)(void* L);
 static PgUnloadLayerFn g_orig;
@@ -23,5 +23,9 @@ static int __cdecl Hook_PgUnloadLayer(void* L) {
 }
 
 int bug_009_install(void) {
+    if (fixpack_build() != FIXPACK_BUILD_V11) {
+        m2_logf("BUG-009  skipped (v11-only)");
+        return FIXPACK_SKIPPED;
+    }
     return m2_hook_attach((void*)VA_PG_UNLOADLAYER, (void*)Hook_PgUnloadLayer, (void**)&g_orig);
 }

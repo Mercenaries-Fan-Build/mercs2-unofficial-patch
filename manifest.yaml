@@ -9,7 +9,9 @@ shipment:
   authors: [Mercenaries Fan Build]
   description: >-
     Bug fixes for Mercenaries 2: World in Flames — save-integrity, crash and logic defects traced to
-    specific code in the decompiled corpus and the retail executable.
+    specific code in the decompiled corpus and the retail v1.1 executable. 0.4.0 adds the mesh-emitter
+    fire fix (canopies, trees and wrecks render fire again), plus the opt-in console-parity diagnostic
+    probe and the winch-magnet-chain restoration seed.
   license: MIT
 
 load:
@@ -34,41 +36,59 @@ contributions:
     target: mrxplayer
     append: src/lua/bug_006_heroswap_save_restore.lua
 
+
   # T3 — runtime detours in one .asi, one source file per bug (native/). Build it first: qm does not
   # compile native code — `scripts/fetch-sdk.sh && make -C native` (the fetch pulls the pinned
   # m2-sdk release into .sdk/<version>/; `make -C native` auto-runs the fetch if it is missing).
   # `touches` declares each hook twice: by the Lua binding it replaces (`Table.Function`), and by that
-  # cfunc's VA in the one EXE build the plugin arms on (fixpack.h). The VAs are the binding-table slots
+  # cfunc's VA in the v11 EXE the plugin arms on (fixpack.h). The VAs are the binding-table slots
   # (the register cites addresses inside the bodies, which are not hookable). CI checks each VA
   # appears in native/src.
   - kind: native_hook
     target: retail
     plugin: src/unofficial_patch.asi
     touches:
-      # BUG-004 — the five profile setters that never dirty the autosave flag
+      # BUG-004 — the five profile setters that never dirty the autosave flag.
       - Player.SetCash
-      - "0x005DF480"
+      - "0x005DF470"
       - Player.SetFuelCapacity
-      - "0x005DF720"
+      - "0x005DF710"
       - Player.SetProfileCharacter
-      - "0x005DF7D0"
+      - "0x005DF7C0"
       - Player.SetProfileCostume
-      - "0x005DF920"
+      - "0x005DF910"
       - Player.SetAvailableCostumes
-      - "0x005DFB40"
-      # BUG-007 — three PDA blip binders that dereference NULL
-      - _GuiInternal.AddPdaMapBlips
-      - "0x005BCE70"
-      - _GuiInternal.UpdatePdaBlip
-      - "0x005BCF90"
-      - _GuiInternal.RemovePdaBlip
-      - "0x005BD0C0"
+      - "0x005DFB30"
       # BUG-008 — Gui.ShowLoadingHints(false) never clears the flag
       - Gui.ShowLoadingHints
-      - "0x005B4C30"
+      - "0x005B4C20"
       # BUG-009 — Pg.UnloadLayer NULL-derefs on a co-op client
       - Pg.UnloadLayer
-      - "0x005D4E40"
+      - "0x005D4E30"
+      # BUG-014 — the billboard-tree Z-prepass loop, found by signature (m2_render.h) in every build:
+      # declared at its VA in each reference build, v1.1 then v1.0.
+      - "bug_014:tree_zpass_loop"
+      - "0x004A3EA0"
+      - "bug_014:tree_zpass_loop_v10"
+      - "0x004A3E40"
+      # FEATURE-003 — winch magnet chain visual (seed form). Owns both the Havok-chain hook and
+      # the AttachCargoToWinch Lua cfunc so the probe can be disabled independently without
+      # losing winch telemetry. See verification/FEATURE-003.md.
+      - "feature_003:havok_chain"
+      - "0x00444030"
+      - "feature_003:attach_cargo_to_winch"
+      - "0x005D1FD0"
+      # FEATURE-004 — mesh-emitter fire visuals. Four patch sites: A overwrites 3 bytes in-place
+      # (hidden-node flag); B and C patch the 5-byte `call` operand at the named sites so the
+      # game dispatches through our thunks. See verification/FEATURE-004.md for the proofs.
+      - "feature_004:hidden_node_flag"
+      - "0x004D2C3A"
+      - "feature_004:walker_call"
+      - "0x0048ADBF"
+      - "feature_004:emit_call"
+      - "0x0048FED8"
+      - "feature_004:area_call"
+      - "0x004787D4"
 
   # Per-fix switches the .asi reads at startup; ships beside the plugin.
   - kind: place_file

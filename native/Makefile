@@ -17,6 +17,9 @@ SDK_VERSION := $(shell awk -F'"' '/^SDK_VERSION=/ {print $$2}' ../scripts/fetch-
 SDK_DIR     := ../.sdk/$(SDK_VERSION)
 SDK_MK      := $(SDK_DIR)/sdk.mk
 
+# The fetch rule below is the first rule in this file; without this, it would be the default goal.
+.DEFAULT_GOAL := all
+
 # `-include` is silent on a missing file. The pattern rule below creates it by invoking the fetch
 # script, and GNU make will then re-read the generated adapter automatically.
 -include $(SDK_MK)
@@ -28,8 +31,8 @@ CC_MINGW = i686-w64-mingw32-gcc
 TARGET   = ../src/unofficial_patch.asi
 SRCS     = $(wildcard src/*.c)
 
-CFLAGS  = -O2 -Wall -Wextra -shared $(M2_CFLAGS)
-LDFLAGS = $(M2_LDFLAGS) -lkernel32 -luser32
+CFLAGS  = -O2 -Wall -Wextra -shared -DCOBJMACROS $(M2_CFLAGS)
+LDFLAGS = $(M2_LDFLAGS) -lkernel32 -luser32 -ld3d9
 
 .PHONY: all verify clean help
 

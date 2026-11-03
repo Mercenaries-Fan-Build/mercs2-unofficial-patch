@@ -15,6 +15,7 @@ Built and installed with [the Quartermaster][qm] (`qm`).
 | **BUG-007** | three PDA blip binders dereference NULL — a crash, on a stale or out-of-range blip id | code |
 | **BUG-008** | `ShowLoadingHints(false)` never turns loading hints off; the flag can be set and never cleared | code |
 | **BUG-009** | a co-op **client** crashes if a layer unloads while no game state is current | code |
+| **BUG-014** | the billboard-tree depth pre-pass draws its tree cards through another draw's world matrix (in captures, an occlusion box's, scaled up to 200×) | code |
 
 Each has a card in [`verification/`](verification/) with how to reproduce the bug, what to expect
 after, and what would count as the fix overreaching.
@@ -93,10 +94,12 @@ finished block would silently erase every other mod's Lua. `qm` composes the app
 
 **Code fixes are runtime detours, never byte patches to the shipped exe.** `.rdata`
 registration-table writes trip SecuROM anti-tamper — a slot patch crashed early init — so everything
-goes through `.text` MinHook, which the cracked build tolerates. The plugin also refuses to arm on
-any build but the one its addresses were verified against: on another build MinHook would splice a
-JMP into whatever happened to live at that address, so the failure mode of guessing is corruption
-rather than a fix that does nothing.
+goes through `.text` MinHook, which the cracked build tolerates. A fix with hard-coded addresses
+refuses to arm on any build but the one they were verified against: on another build MinHook would
+splice a JMP into whatever happened to live at that address, so the failure mode of guessing is
+corruption rather than a fix that does nothing. A fix whose sites m2-sdk finds by signature
+(BUG-014) arms on every build the signatures match, and fails, naming what did not match, on any
+other.
 
 ## License
 
