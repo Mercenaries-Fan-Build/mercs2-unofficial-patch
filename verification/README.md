@@ -13,6 +13,7 @@ happen is not a verified fix.
 | [BUG-007](BUG-007.md) | T3 | ✅ verified live — all three binders survive an out-of-range id (AFTER path) |
 | [BUG-008](BUG-008.md) | T3 | ✅ verified live — flag clears on `false` (1→0), direct memory read (notify still out of scope) |
 | [BUG-009](BUG-009.md) | T3 | built — co-op client crash |
+| [BUG-014](BUG-014.md) | T3 | built — billboard-tree Z-prepass matrix; arms on every build; verified in frame captures (not the DLC tearing) |
 | [BUG-010](BUG-010.md) | — | **NOT A BUG.** Nothing ships. Recorded so it is not re-derived. |
 | [T1-text](T1-text.md) | T1 | tooling ready, **nothing shipped** — each item blocked on one observation |
 
@@ -65,11 +66,10 @@ BUG-009  armed   — Pg.UnloadLayer crashes a co-op client with no current game 
 
 Anything else and stop — the results below mean nothing if the hooks did not take:
 
-- **`FATAL: this is not the build the addresses were verified against`** — the pack refuses to arm on
-  any build but the cracked de-SecuROM'd retail one (SizeOfImage 53,485,568 · CheckSum `0x00A5438D` ·
-  ImageBase `0x00400000`). This is deliberate: every address was read out of that one image, so on
-  another build MinHook would splice a JMP into whatever happens to live there. Corruption, not a
-  no-op.
+- **`skipped (v11-only)`** on a fix's line — that fix's addresses were read out of one image, the
+  v11-patched-securom build (the `target check:` line names the build it found), so on another build
+  MinHook would splice a JMP into whatever happens to live there: corruption, not a no-op. It refuses
+  to arm instead. BUG-014 finds its sites by signature and arms on every build.
 - **`FAILED`** on a line — that fix is not installed; the others may be. The id tells you which.
 - **No log at all** — the `.asi` never loaded. See the `m2-sdk.dll` warning above.
 
