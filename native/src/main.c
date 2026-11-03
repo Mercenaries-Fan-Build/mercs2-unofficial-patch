@@ -11,6 +11,8 @@ static FixpackModule g_modules[] = {
       bug_008_install, 1 },
     { "BUG-009", "Pg.UnloadLayer crashes a co-op client with no current game state",
       bug_009_install, 1 },
+    { "BUG-014", "billboard-tree Z-prepass draws with another draw's world matrix",
+      bug_014_install, 1 },
     /* Console-parity work: all default-ON. feature_001 is the visible red laser beam.
      * feature_003 is a winch-chain seed (logs today; mesh attach in a later iteration).
      * feature_004 is the mesh-emitter fix for canopies, trees and wrecks. */
@@ -66,10 +68,6 @@ FixpackBuild fixpack_build(void) {
                 (unsigned long)nt->OptionalHeader.CheckSum);
     }
     return build;
-}
-
-int fixpack_target_is_supported(void) {
-    return fixpack_build() != FIXPACK_BUILD_UNKNOWN;
 }
 
 static void OnIniKey(void* ud, const char* key, const char* value) {
@@ -138,10 +136,9 @@ BOOL WINAPI DllMain(HINSTANCE inst, DWORD reason, LPVOID reserved) {
     m2_log_init(inst);
     m2_logf("Mercenaries 2 unofficial patch, m2 %s", m2_version_string());
 
-    if (!fixpack_target_is_supported()) {
-        m2_logf("FATAL: this is not the build the addresses were verified against; nothing installed");
-        return TRUE;   /* stay loaded so the log survives; just do nothing */
-    }
+    /* Logs the target check. A module with hard-coded v11 addresses skips itself on any other build; a
+     * module whose sites m2-sdk resolves arms on every build its signatures match. */
+    fixpack_build();
 
     /* ⚠ Hook off the loader lock: this runs nested in pmc_bb's DllMain, and MinHook's Freeze()
      * suspends every thread — not safe to do while holding the loader lock. */
