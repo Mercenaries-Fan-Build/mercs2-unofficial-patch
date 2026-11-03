@@ -23,8 +23,9 @@ typedef struct {
     int enabled;           /* from the .ini; default ON */
 } FixpackModule;
 
-/* The pack targets the v11-patched-securom retail build only. On a mismatch we refuse to arm
- * any module rather than overwrite the first 5 bytes of whatever happens to live at that VA. */
+/* Modules with hard-coded addresses target the v11-patched-securom retail build only: on a mismatch
+ * each refuses to arm (FIXPACK_SKIPPED) rather than overwrite the first 5 bytes of whatever happens to
+ * live at that VA. Modules whose sites m2-sdk resolves by signature (m2_render.h) arm on every build. */
 typedef enum {
     FIXPACK_BUILD_UNKNOWN = 0,
     FIXPACK_BUILD_V11,     /* v11-patched-securom — the official 1.1 patch, SecuROM intact */
@@ -37,12 +38,10 @@ typedef enum {
 /* Classifies the currently loaded Mercenaries2.exe. Cached after the first call. */
 FixpackBuild fixpack_build(void);
 
-/* 1 iff the current build is the recognised pin. */
-int fixpack_target_is_supported(void);
-
 int bug_004_install(void);   /* profile setters that never dirty the autosave flag */
 int bug_008_install(void);   /* Gui.ShowLoadingHints(false) is a one-way switch */
 int bug_009_install(void);   /* Pg.UnloadLayer NULL-derefs on a co-op client */
+int bug_014_install(void);   /* the tree Z-prepass draws with the previous draw's world matrix */
 
 /* Console-parity work. Not bug fixes — these restore PS3/Xbox behaviour that PC never shipped.
  * See verification/FEATURE-003.md / verification/FEATURE-004.md. */
