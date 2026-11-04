@@ -53,7 +53,7 @@ $(M2_IMPLIB):
 verify: $(TARGET)
 	@i686-w64-mingw32-objdump -p $(TARGET) | grep -q "DLL Name: m2-sdk.dll" \
 		|| { echo "FAIL: $(TARGET) does not import m2-sdk.dll" >&2; exit 1; }
-	@file $(TARGET) | grep -q "PE32 .*80386" \
+	@i686-w64-mingw32-objdump -f $(TARGET) | grep -q "file format pei-i386" \
 		|| { echo "FAIL: $(TARGET) is not a 32-bit PE" >&2; exit 1; }
 	@echo "OK: $(TARGET) is a 32-bit PE importing m2-sdk.dll"
 
