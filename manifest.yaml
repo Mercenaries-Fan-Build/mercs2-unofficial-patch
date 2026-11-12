@@ -36,6 +36,11 @@ contributions:
     target: mrxplayer
     append: src/lua/bug_006_heroswap_save_restore.lua
 
+  # BUG-015 — the HQ stockpile high-water mark is saved but never restored (the load guard tests a
+  # key the save never writes). The target is a `vz` script.
+  - kind: patch_lua
+    target: wifpmcinterior
+    append: src/lua/bug_015_stockpile_restore.lua
 
   # T3 — runtime detours in one .asi, one source file per bug (native/). Build it first: qm does not
   # compile native code — `scripts/fetch-sdk.sh && make -C native` (the fetch pulls the pinned
