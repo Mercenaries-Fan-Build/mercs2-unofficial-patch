@@ -11,6 +11,7 @@ Built and installed with [the Quartermaster][qm] (`qm`).
 |---|---|---|
 | **BUG-001** + **BUG-003** | the toolbox counter climbs on its own across save/reload, paying out cash and milestone vehicles for pickups that never happened | Lua |
 | **BUG-006** | a hero swap hands back a full magazine and full health, whatever you swapped out with | Lua |
+| **BUG-015** | the HQ stockpile piles are saved but never restored, so after a load they drop from the most you had to what you hold now | Lua |
 | **BUG-004** | changing cash, fuel capacity, character or costume **alone** is silently not autosaved | code |
 | **BUG-007** | three PDA blip binders dereference NULL — a crash, on a stale or out-of-range blip id | code |
 | **BUG-008** | `ShowLoadingHints(false)` never turns loading hints off; the flag can be set and never cleared | code |
