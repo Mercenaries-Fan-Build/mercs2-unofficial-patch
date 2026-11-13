@@ -4,7 +4,7 @@ format: 2
 
 shipment:
   name: mercs2-unofficial-patch
-  version: 0.5.0
+  version: 0.6.0
   target: retail
   authors: [Mercenaries Fan Build]
   description: >-
@@ -17,7 +17,7 @@ shipment:
 load:
   # ⚠ m2-sdk is a load-time import: without it the plugin fails to load (0x8007007E) before any code runs.
   requires:
-    - { shipment: m2-sdk, version: "^0.5" }
+    - { shipment: m2-sdk, version: ">=0.6.0" }
 
 contributions:
   # BUG-001 / BUG-003 — the toolbox counter inflates on reload. One fix in two scripts; BUG-003 makes
@@ -36,6 +36,11 @@ contributions:
     target: mrxplayer
     append: src/lua/bug_006_heroswap_save_restore.lua
 
+  # BUG-015 — the HQ stockpile high-water mark is saved but never restored (the load guard tests a
+  # key the save never writes). The target is a `vz` script.
+  - kind: patch_lua
+    target: wifpmcinterior
+    append: src/lua/bug_015_stockpile_restore.lua
 
   # T3 — runtime detours in one .asi, one source file per bug (native/). Build it first: qm does not
   # compile native code — `scripts/fetch-sdk.sh && make -C native` (the fetch pulls the pinned

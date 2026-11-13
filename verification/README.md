@@ -14,6 +14,7 @@ happen is not a verified fix.
 | [BUG-008](BUG-008.md) | T3 | ✅ verified live — flag clears on `false` (1→0), direct memory read (notify still out of scope) |
 | [BUG-009](BUG-009.md) | T3 | built — co-op client crash |
 | [BUG-014](BUG-014.md) | T3 | built — billboard-tree Z-prepass matrix; arms on every build; verified in frame captures (not the DLC tearing) |
+| [BUG-015](BUG-015.md) | T2 | built — HQ stockpile mark restored on load; proven on the built bytecode, not yet observed in-game |
 | [BUG-010](BUG-010.md) | — | **NOT A BUG.** Nothing ships. Recorded so it is not re-derived. |
 | [T1-text](T1-text.md) | T1 | tooling ready, **nothing shipped** — each item blocked on one observation |
 
