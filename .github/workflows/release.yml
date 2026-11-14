@@ -16,7 +16,7 @@ permissions:
 # Same pin as lint.yml. v0.15.0 is the first Workshop Tools release carrying qm 3.0.0, which reads
 # manifest format 2 only.
 env:
-  QM_VERSION: v0.17.0
+  QM_VERSION: v1.19.0
 
 jobs:
   stamp-and-release:
