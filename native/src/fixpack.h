@@ -42,6 +42,7 @@ int bug_004_install(void);   /* profile setters that never dirty the autosave fl
 int bug_008_install(void);   /* Gui.ShowLoadingHints(false) is a one-way switch */
 int bug_009_install(void);   /* Pg.UnloadLayer NULL-derefs on a co-op client */
 int bug_014_install(void);   /* the tree Z-prepass draws with the previous draw's world matrix */
+int bug_016_install(void);   /* no listed display mode the game knows: startup NULL-device crash */
 
 /* Console-parity work. Not bug fixes — these restore PS3/Xbox behaviour that PC never shipped.
  * See verification/FEATURE-003.md / verification/FEATURE-004.md. */
