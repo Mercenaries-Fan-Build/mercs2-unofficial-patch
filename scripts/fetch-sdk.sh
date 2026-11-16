@@ -12,10 +12,10 @@
 #
 # Pin values. Bump these when upgrading. The sha256 of each asset is pinned so a mutated
 # release cannot slip in silently; the script hard-fails on mismatch.
-SDK_VERSION="v0.6.0"
-SDK_HEADERS_SHA256="01513ec28164ae5ac91b23b08e6d8fcebf2aff05c64cff8523481163df8130cc"
-SDK_IMPLIB_SHA256="fc079b5d04b79030414be803f91775860f2acbb42b895f427bedffb85bcae563"
-SDK_RUNTIME_SHA256="0fbabf91a988de0553144fd36d9df111994ea2208fd45113d7e8019190231ec7"
+SDK_VERSION="v0.6.1"
+SDK_HEADERS_SHA256="ef781cdc1665f439f86d1dd53afea106e8517af0446d963bf7b3b2298388787b"
+SDK_IMPLIB_SHA256="a387cbf35b06632d971d38f5e672b5843529bf4ffb147464ebb91bd5bdbd2abf"
+SDK_RUNTIME_SHA256="b5e56dd76ec33904a30c620b74f1de187ed665e0bc304176dfde0696bb6fabb3"
 
 set -euo pipefail
 
