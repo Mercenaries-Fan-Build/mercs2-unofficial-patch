@@ -13,6 +13,8 @@ static FixpackModule g_modules[] = {
       bug_009_install, 1 },
     { "BUG-014", "billboard-tree Z-prepass draws with another draw's world matrix",
       bug_014_install, 1 },
+    { "BUG-016", "a display with no 4:3/16:9 mode at 85 Hz or less crashes at startup",
+      bug_016_install, 1 },
     /* Console-parity work: all default-ON. feature_001 is the visible red laser beam.
      * feature_003 is a winch-chain seed (logs today; mesh attach in a later iteration).
      * feature_004 is the mesh-emitter fix for canopies, trees and wrecks. */

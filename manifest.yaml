@@ -4,7 +4,7 @@ format: 2
 
 shipment:
   name: mercs2-unofficial-patch
-  version: 0.6.0
+  version: 0.6.1
   target: retail
   authors: [Mercenaries Fan Build]
   description: >-
@@ -17,7 +17,7 @@ shipment:
 load:
   # ⚠ m2-sdk is a load-time import: without it the plugin fails to load (0x8007007E) before any code runs.
   requires:
-    - { shipment: m2-sdk, version: ">=0.6.0" }
+    - { shipment: m2-sdk, version: ">=0.6.1" }
 
 contributions:
   # BUG-001 / BUG-003 — the toolbox counter inflates on reload. One fix in two scripts; BUG-003 makes
@@ -76,6 +76,20 @@ contributions:
       - "0x004A3EA0"
       - "bug_014:tree_zpass_loop_v10"
       - "0x004A3E40"
+      # BUG-016 — display modes: the mode-list filter's refresh test, and ApplySettings' first-search and
+      # fallback-search calls, found by signature (m2_render.h) in every build: v1.1, then v1.0.
+      - "bug_016:mode_filter"
+      - "0x00754E07"
+      - "bug_016:first_search_call"
+      - "0x0074CCCB"
+      - "bug_016:fallback_call"
+      - "0x0074CD2E"
+      - "bug_016:mode_filter_v10"
+      - "0x00754C0D"
+      - "bug_016:first_search_call_v10"
+      - "0x0074CABB"
+      - "bug_016:fallback_call_v10"
+      - "0x0074CB1E"
       # FEATURE-003 — winch magnet chain visual (seed form). Owns both the Havok-chain hook and
       # the AttachCargoToWinch Lua cfunc so the probe can be disabled independently without
       # losing winch telemetry. See verification/FEATURE-003.md.
